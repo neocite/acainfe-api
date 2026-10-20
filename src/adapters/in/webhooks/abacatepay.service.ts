@@ -72,8 +72,15 @@ export function verifyAbacatePaySignature(rawBody: Buffer, signature: string | u
   return safeEqual(expected, signature);
 }
 
-/** Converte o payload do AbacatePay (v1 billing.paid ou v2 checkout.completed) em uma venda. */
-export function mapAbacatePayPayload(payload: Json): RegisterSaleInput | { ignored: string } {
+/**
+ * Converte o payload do AbacatePay (v1 billing.paid ou v2 checkout.completed) em uma venda.
+ * Produto da nota: itens do checkout → metadata.productExternalId (Pix transparente) → produto padrão
+ * da empresa. Sem nenhum deles, não há nota.
+ */
+export function mapAbacatePayPayload(
+  payload: Json,
+  options: { defaultProductId?: string } = {}
+): RegisterSaleInput | { ignored: string } {
   const event = String(payload?.event ?? '');
   if (!PAID_EVENTS.has(event)) return { ignored: `Evento ${event || '(vazio)'} não gera nota` };
   const data = payload.data ?? {};
@@ -104,14 +111,19 @@ export function mapAbacatePayPayload(payload: Json): RegisterSaleInput | { ignor
 
   const checkout = data.checkout ?? data.transparent ?? data.billing;
   // Pix transparente não tem itens: quem gera o Pix informa o produto em metadata.productExternalId.
-  // Sem isso (ex.: Pix de cobrança do açaínfe, cuja nota sai na nota mensal), não há nota.
   const pixProduct = checkout?.metadata?.productExternalId;
-  const items: Json[] = checkout?.items?.length
-    ? checkout.items
+  const items: RegisterSaleInput['items'] = checkout?.items?.length
+    ? checkout.items.map((i: Json) => ({
+        productExternalId: String(i.id),
+        quantity: Number(i.quantity ?? 1),
+      }))
     : pixProduct
-      ? [{ id: pixProduct, quantity: 1 }]
-      : [];
-  if (!items.length) return { ignored: 'Pagamento sem itens nem metadata.productExternalId' };
+      ? [{ productExternalId: String(pixProduct), quantity: 1 }]
+      : options.defaultProductId
+        ? [{ productId: options.defaultProductId, quantity: 1 }]
+        : [];
+  if (!checkout?.id || !items.length)
+    return { ignored: 'Pagamento sem produto (itens, metadata.productExternalId ou produto padrão)' };
   const customer = data.customer ?? {};
   return {
     source: 'ABACATEPAY',
@@ -124,10 +136,7 @@ export function mapAbacatePayPayload(payload: Json): RegisterSaleInput | { ignor
       // taxId chega mascarado no v2 ("123.***.***-**"); createCustomer descarta valores mascarados.
       taxId: customer.taxId || undefined,
     },
-    items: items.map((i: Json) => ({
-      productExternalId: String(i.id),
-      quantity: Number(i.quantity ?? 1),
-    })),
+    items,
     totalCents: Number(checkout.paidAmount ?? checkout.amount),
     rawPayload: payload,
   };
@@ -189,7 +198,9 @@ export class AbacatePayWebhookService {
       }
     }
 
-    const mapped = mapAbacatePayPayload(params.payload);
+    const mapped = mapAbacatePayPayload(params.payload, {
+      defaultProductId: tenant.integrations.abacatepay?.defaultProductId,
+    });
     if ('ignored' in mapped) return { status: 'IGNORED', reason: mapped.ignored };
     const result = await this.deps.sales.register(tenant, mapped, { holdIfNotReady: true });
     if (result.held) {

@@ -4,6 +4,7 @@ import type { Container } from '../../../../config/container.js';
 import type { Tenant } from '../../../../domain/tenant/tenant.js';
 import {
   PastSalesApplyReconciliationSchema,
+  PastSalesIgnoreSchema,
   PastSalesIssueSchema,
   PastSalesMarkSchema,
   PastSalesScanSchema,
@@ -52,6 +53,15 @@ export class PastSalesController {
   @ApiBody({ schema: schema(PastSalesMarkSchema) })
   mark(@CurrentTenant() tenant: Tenant, @Body() body: unknown) {
     return this.ops.mark(tenant, body);
+  }
+
+  @Post('ignore')
+  @ApiOperation({
+    summary: 'Ignora (ou volta a considerar) pagamentos que não são venda, ex.: testes (nunca emitir)',
+  })
+  @ApiBody({ schema: schema(PastSalesIgnoreSchema) })
+  ignore(@CurrentTenant() tenant: Tenant, @Body() body: unknown) {
+    return this.ops.ignore(tenant, body);
   }
 
   @Post('issue')

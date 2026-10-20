@@ -21,6 +21,7 @@ import {
   BusinessTypeSchema,
   CompanyIssRateSchema,
   ConnectAbacatePaySchema,
+  DefaultProductSchema,
   RecreateWebhookSchema,
 } from '../../schemas.js';
 import { AppHeaders, AppUserGuard, CurrentUser } from '../shared/app-auth.js';
@@ -179,6 +180,24 @@ export class AppOnboardingController {
     return this.c.onboarding.recreateAbacatePayWebhook(
       tenant,
       parseInput(RecreateWebhookSchema, body).apiKey
+    );
+  }
+
+  @Put('companies/:tenantId/abacatepay/default-product')
+  @ApiOperation({
+    summary:
+      'Produto da nota quando o pagamento não informa o produto (Pix transparente sem itens). null = nenhum',
+  })
+  @ApiBody({ schema: schema(DefaultProductSchema) })
+  async setDefaultProduct(
+    @CurrentUser() user: User,
+    @Param('tenantId') tenantId: string,
+    @Body() body: unknown
+  ) {
+    const tenant = await this.c.accounts.ownedTenant(user, tenantId);
+    return this.c.onboarding.setDefaultProduct(
+      tenant,
+      parseInput(DefaultProductSchema, body).productId
     );
   }
 }

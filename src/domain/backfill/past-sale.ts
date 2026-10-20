@@ -20,9 +20,12 @@ export interface PastSale {
   customer: { externalId?: string; name?: string; email?: string; taxId?: string; phone?: string };
   /**
    * AVAILABLE = pode emitir; ALREADY_ISSUED = usuário marcou que já tem nota em outro sistema;
-   * IMPORTED = virou venda no açaínfe; REFUNDED = estornada/contestada (nunca emitir).
+   * IMPORTED = virou venda no açaínfe; REFUNDED = estornada/contestada (nunca emitir);
+   * IGNORED = o usuário disse que não é venda (ex.: pagamento de teste) — não emitir.
    */
-  status: 'AVAILABLE' | 'ALREADY_ISSUED' | 'IMPORTED' | 'REFUNDED';
+  status: 'AVAILABLE' | 'ALREADY_ISSUED' | 'IMPORTED' | 'REFUNDED' | 'IGNORED';
+  /** Motivo informado ao ignorar (ex.: "pagamento de teste"). */
+  ignoredReason?: string;
   /** Ambiente da venda criada na importação: ao trocar de ambiente, a venda volta a ficar disponível. */
   importedEnvironment?: 'PRODUCTION' | 'HOMOLOGATION';
   saleId?: string;
@@ -43,6 +46,7 @@ export interface PastSalesPeriodSummary {
   alreadyIssued: number;
   imported: number;
   refunded: number;
+  ignored: number;
 }
 
 export const PAST_PERIOD_WARNING =
@@ -66,6 +70,7 @@ export function summarizePastSales(
         alreadyIssued: 0,
         imported: 0,
         refunded: 0,
+        ignored: 0,
       } satisfies PastSalesPeriodSummary);
     if (s.status === 'AVAILABLE') {
       g.available.count++;
@@ -73,6 +78,7 @@ export function summarizePastSales(
       if (!s.items.length) g.available.withoutItems++;
     } else if (s.status === 'ALREADY_ISSUED') g.alreadyIssued++;
     else if (s.status === 'IMPORTED') g.imported++;
+    else if (s.status === 'IGNORED') g.ignored++;
     else g.refunded++;
     byPeriod.set(s.period, g);
   }
@@ -96,6 +102,28 @@ export function markAlreadyIssued(
     status: alreadyIssued ? 'ALREADY_ISSUED' : 'AVAILABLE',
     // Desmarcar apaga a referência; marcar à mão mantém a que já existia.
     matchedNfse: alreadyIssued ? (matchedNfse ?? sale.matchedNfse) : undefined,
+    ignoredReason: undefined,
+    updatedAt: now,
+  };
+}
+
+/** Ignorar (ou voltar a considerar) um pagamento que não é venda, ex.: teste. Só antes de emitir. */
+export function markIgnored(
+  sale: PastSale,
+  ignored: boolean,
+  now: Date,
+  reason?: string
+): PastSale {
+  if (sale.status === 'IMPORTED' || sale.status === 'REFUNDED') {
+    throw DomainError.invalidState(
+      `A venda ${sale.externalId} já foi ${sale.status === 'IMPORTED' ? 'emitida' : 'estornada'}`
+    );
+  }
+  return {
+    ...sale,
+    status: ignored ? 'IGNORED' : 'AVAILABLE',
+    ignoredReason: ignored ? reason?.trim() || undefined : undefined,
+    matchedNfse: ignored ? undefined : sale.matchedNfse,
     updatedAt: now,
   };
 }

@@ -81,6 +81,8 @@ export interface AbacatePayIntegrationView {
   webhookEndpoint?: string;
   /** false = o webhook aponta para outra URL (recrie); null = não sabemos (conectado antes do registro). */
   webhookUpToDate: boolean | null;
+  /** Produto da nota quando o pagamento não informa o produto. decided=false: ainda não perguntado. */
+  defaultProduct?: { decided: boolean; productId?: string };
 }
 
 export interface EmissionView {
@@ -394,7 +396,44 @@ export class OnboardingService {
       connectedAt: a.connectedAt,
       webhookEndpoint: a.webhookEndpoint,
       webhookUpToDate: a.webhookEndpoint && expected ? a.webhookEndpoint === expected : null,
+      defaultProduct: {
+        decided: Boolean(a.defaultProductDecidedAt),
+        productId: a.defaultProductId,
+      },
     };
+  }
+
+  /**
+   * Produto que vai na nota quando o pagamento não informa o produto (Pix transparente sem itens e sem
+   * metadata.productExternalId). null = nenhum: esses pagamentos não geram nota.
+   */
+  async setDefaultProduct(
+    tenant: Tenant,
+    productId: string | null
+  ): Promise<AbacatePayIntegrationView> {
+    const current = (await this.deps.tenants.findById(tenant.id))!;
+    if (!current.integrations.abacatepay)
+      throw DomainError.invalidState('Conecte o AbacatePay antes de escolher o produto padrão');
+    if (productId) {
+      const product = await this.deps.products.findById(tenant.id, productId);
+      if (!product) throw DomainError.notFound('Produto', productId);
+      if (!product.active) throw DomainError.validation(`Produto inativo: ${product.name}`);
+    }
+    const now = this.deps.clock.now();
+    const updated: Tenant = {
+      ...current,
+      integrations: {
+        ...current.integrations,
+        abacatepay: {
+          ...current.integrations.abacatepay,
+          defaultProductId: productId ?? undefined,
+          defaultProductDecidedAt: now,
+        },
+      },
+      updatedAt: now,
+    };
+    await this.deps.tenants.update(updated);
+    return this.abacatepayView(updated);
   }
 
   /**
@@ -419,6 +458,16 @@ export class OnboardingService {
     mergedDuplicates: { name: string; externalId: string; productId: string }[];
     /** Prévia das vendas pagas antes do açaínfe (ou aviso, se a key não tiver permissão de leitura). */
     pastSales?: { periods: PastSalesPeriodSummary[] } | { warning: string };
+    /**
+     * Pergunta do onboarding: qual produto vai na nota quando o pagamento não informa o produto?
+     * Com um produto só, ele vem sugerido; o usuário confirma (ou escolhe "nenhum") em setDefaultProduct.
+     */
+    defaultProduct: {
+      decided: boolean;
+      productId?: string;
+      suggestedProductId?: string;
+      options: { id: string; name: string }[];
+    };
   }> {
     if (tenant.status !== 'ACTIVE') {
       throw DomainError.invalidState(
@@ -464,6 +513,7 @@ export class OnboardingService {
       integrations: {
         ...current.integrations,
         abacatepay: {
+          ...current.integrations.abacatepay,
           webhookSecret,
           encryptedApiKey: this.deps.cipher.encrypt(Buffer.from(key, 'utf8')),
           webhookId,
@@ -536,6 +586,10 @@ export class OnboardingService {
         pastSales = { warning: error instanceof Error ? error.message : String(error) };
       }
     }
+    const productOptions = (await this.deps.products.list(tenant.id, { pageSize: 100 })).items
+      .filter((p) => p.active)
+      .map((p) => ({ id: p.id, name: p.name }));
+    const decided = updatedTenant.integrations.abacatepay;
     return {
       webhookId,
       imported: created.length,
@@ -545,6 +599,12 @@ export class OnboardingService {
       skippedTestProducts,
       mergedDuplicates,
       pastSales,
+      defaultProduct: {
+        decided: Boolean(decided.defaultProductDecidedAt),
+        productId: decided.defaultProductId,
+        suggestedProductId: productOptions.length === 1 ? productOptions[0].id : undefined,
+        options: productOptions,
+      },
     };
   }
 

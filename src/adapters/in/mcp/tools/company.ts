@@ -8,6 +8,7 @@ import {
   BusinessTypeSchema,
   CompanyIssRateSchema,
   ConnectAbacatePaySchema,
+  DefaultProductSchema,
   RecreateWebhookSchema,
   NumberingSchema,
   UpdateTenantSchema,
@@ -122,7 +123,7 @@ export function registerCompanyTools(server: McpServer, c: Container, tenant: Te
     {
       title: 'Conectar o AbacatePay (e buscar pagamentos antigos)',
       description:
-        'Conecta com a API key do AbacatePay: cria o webhook sozinho, importa os produtos (com o perfil fiscal da empresa) e, se scanPastSales (padrão), busca os pagamentos antigos que ainda não têm nota e mostra a prévia por mês. NÃO emite nada: depois use list_past_sales, mark_past_sales_already_issued e issue_past_sales. Pode ser chamado de novo para trocar a key sem duplicar o webhook.',
+        'Conecta com a API key do AbacatePay: cria o webhook sozinho, importa os produtos (com o perfil fiscal da empresa) e, se scanPastSales (padrão), busca os pagamentos antigos que ainda não têm nota e mostra a prévia por mês. NÃO emite nada: depois use list_past_sales, mark_past_sales_already_issued e issue_past_sales. Se defaultProduct.decided for false, pergunte qual produto usar quando o pagamento vier sem produto e chame set_default_product. Pode ser chamado de novo para trocar a key sem duplicar o webhook.',
       inputSchema: ConnectAbacatePaySchema,
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
@@ -189,5 +190,16 @@ export function registerCompanyTools(server: McpServer, c: Container, tenant: Te
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
     ({ apiKey }) => run(() => c.onboarding.recreateAbacatePayWebhook(tenant, apiKey))
+  );
+
+  server.registerTool(
+    'set_default_product',
+    {
+      title: 'Produto padrão do AbacatePay',
+      description:
+        'Define qual produto vai na nota quando o pagamento chega SEM produto (ex.: Pix transparente sem itens e sem metadata.productExternalId). Pergunte ao usuário depois de connect_abacatepay (defaultProduct.options; com um produto só, ele vem em suggestedProductId). productId: null = nenhum, e esses pagamentos não geram nota. Atenção: com produto padrão, TODO Pix sem produto vira nota (inclusive testes); se a conta recebe Pix que não são venda, prefira null e peça ao sistema que gera o Pix para enviar metadata.productExternalId.',
+      inputSchema: DefaultProductSchema,
+    },
+    ({ productId }) => run(() => c.onboarding.setDefaultProduct(tenant, productId))
   );
 }

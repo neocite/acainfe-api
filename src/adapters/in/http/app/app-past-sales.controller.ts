@@ -38,6 +38,10 @@ export class AppPastSalesController {
   async mark(@CurrentUser() user: User, @Param('tenantId') id: string, @Body() body: unknown) {
     return this.ops.mark(await this.tenant(user, id), body);
   }
+  @Post('ignore')
+  async ignore(@CurrentUser() user: User, @Param('tenantId') id: string, @Body() body: unknown) {
+    return this.ops.ignore(await this.tenant(user, id), body);
+  }
   @Post('issue')
   async issue(@CurrentUser() user: User, @Param('tenantId') id: string, @Body() body: unknown) {
     return this.ops.issue(await this.tenant(user, id), body);

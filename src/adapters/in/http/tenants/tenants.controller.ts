@@ -8,6 +8,7 @@ import { toConnectAbacatePayView } from '../../presenters.js';
 import {
   ConnectAbacatePaySchema,
   CreateTenantSchema,
+  DefaultProductSchema,
   NumberingSchema,
   RecreateWebhookSchema,
   UpdateTenantSchema,
@@ -104,6 +105,21 @@ export class TenantsController {
     return this.c.onboarding.recreateAbacatePayWebhook(
       tenant,
       parseInput(RecreateWebhookSchema, body).apiKey
+    );
+  }
+
+  @Put('me/integrations/abacatepay/default-product')
+  @UseGuards(ApiKeyGuard)
+  @ApiSecurity('apiKey')
+  @ApiOperation({
+    summary:
+      'Produto da nota quando o pagamento não informa o produto (Pix transparente sem itens). null = nenhum',
+  })
+  @ApiBody({ schema: schema(DefaultProductSchema) })
+  setDefaultProduct(@CurrentTenant() tenant: Tenant, @Body() body: unknown) {
+    return this.c.onboarding.setDefaultProduct(
+      tenant,
+      parseInput(DefaultProductSchema, body).productId
     );
   }
 }

@@ -6,6 +6,7 @@ import {
   matchPastSalesWithMunicipal,
   MunicipalNote,
   markAlreadyIssued,
+  markIgnored,
   PAST_PERIOD_WARNING,
   PastSale,
   PastSalesPeriodSummary,
@@ -269,7 +270,7 @@ export class PastSalesService {
     await this.syncEnvironment(tenant);
     const candidates = await this.deps.pastSales.list(tenant.id, {
       period: target.period,
-      status: ['AVAILABLE', 'ALREADY_ISSUED'],
+      status: ['AVAILABLE', 'ALREADY_ISSUED', 'IGNORED'],
     });
     const selected = target.ids ? candidates.filter((c) => target.ids!.includes(c.id)) : candidates;
     for (const sale of selected)
@@ -279,9 +280,30 @@ export class PastSalesService {
     return { updated: selected.length };
   }
 
+  /** O usuário ignora (ou volta a considerar) pagamentos que não são venda, ex.: testes. */
+  async setIgnored(
+    tenant: Tenant,
+    target: { ids?: string[]; period?: string },
+    ignored: boolean,
+    reason?: string
+  ): Promise<{ updated: number }> {
+    if (!target.ids?.length && !target.period)
+      throw DomainError.validation('Informe ids ou period');
+    await this.syncEnvironment(tenant);
+    const candidates = await this.deps.pastSales.list(tenant.id, {
+      period: target.period,
+      status: ignored ? ['AVAILABLE', 'ALREADY_ISSUED'] : ['IGNORED'],
+    });
+    const selected = target.ids ? candidates.filter((c) => target.ids!.includes(c.id)) : candidates;
+    for (const sale of selected)
+      await this.deps.pastSales.update(markIgnored(sale, ignored, this.deps.clock.now(), reason));
+    return { updated: selected.length };
+  }
+
   /**
    * Emite as vendas disponíveis de um mês. Mês anterior ao atual exige `confirmPastPeriod` (ciência da
-   * competência retroativa). Pix avulso sem itens usa `fallbackProductId`; sem ele, fica de fora.
+   * competência retroativa). Pix avulso sem itens usa `fallbackProductId` ou o produto padrão da
+   * empresa; sem nenhum, fica de fora.
    */
   async issue(
     tenant: Tenant,
@@ -322,11 +344,13 @@ export class PastSalesService {
         });
       }
     }
+    const fallbackProductId =
+      input.fallbackProductId ?? tenant.integrations.abacatepay?.defaultProductId;
     for (const past of await this.deps.pastSales.list(tenant.id, {
       period: input.period,
       status: ['AVAILABLE'],
     })) {
-      if (!past.items.length && !input.fallbackProductId) {
+      if (!past.items.length && !fallbackProductId) {
         result.skippedWithoutProduct++;
         continue;
       }
@@ -342,7 +366,7 @@ export class PastSalesService {
                   productExternalId: i.productExternalId,
                   quantity: i.quantity,
                 }))
-              : [{ productId: input.fallbackProductId, quantity: 1 }],
+              : [{ productId: fallbackProductId, quantity: 1 }],
             totalCents: past.amountCents,
             competenceDate: past.paidAt,
             rawPayload: { backfill: true, kind: past.kind },

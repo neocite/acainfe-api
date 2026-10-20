@@ -183,6 +183,46 @@ describe('Onboarding self-service', () => {
     expect(again).toMatchObject({ imported: 0, alreadyExisting: 2 });
   });
 
+  it('produto padrão: sugerido com um produto só, vira pendência até decidir e sobrevive à reconexão', async () => {
+    const user = await login();
+    const { pfx, password } = cert();
+    const { tenant: view } = await h.onboarding.submitCertificate(user, pfx, password);
+    const tenant = (await h.repos.tenants.findById(view.id))!;
+    await expect(h.onboarding.setDefaultProduct(tenant, null)).rejects.toThrow(/Conecte/);
+    h.gateway.products = [{ id: 'prod_a', name: 'Mentoria', priceCents: 50000, recurring: false }];
+
+    const r = await h.onboarding.connectAbacatePay(tenant, h.gateway.validKey);
+    const [mentoria] = (await h.products.list(tenant.id, {})).items;
+    expect(r.defaultProduct).toEqual({
+      decided: false,
+      suggestedProductId: mentoria.id,
+      options: [{ id: mentoria.id, name: 'Mentoria' }],
+    });
+    const fields = async () =>
+      (await h.onboarding.status((await h.repos.tenants.findById(tenant.id))!)).readiness.recommended.map(
+        (i) => i.field
+      );
+    expect(await fields()).toContain('defaultProduct');
+
+    await expect(h.onboarding.setDefaultProduct(tenant, 'nao-existe')).rejects.toThrow(/Produto/);
+    expect(await h.onboarding.setDefaultProduct(tenant, mentoria.id)).toMatchObject({
+      defaultProduct: { decided: true, productId: mentoria.id },
+    });
+    expect(await fields()).not.toContain('defaultProduct');
+
+    const again = await h.onboarding.connectAbacatePay(
+      (await h.repos.tenants.findById(tenant.id))!,
+      h.gateway.validKey
+    );
+    expect(again.defaultProduct).toMatchObject({ decided: true, productId: mentoria.id });
+
+    // "Nenhum" também é uma decisão: some da pendência e não há produto padrão.
+    expect(await h.onboarding.setDefaultProduct(tenant, null)).toMatchObject({
+      defaultProduct: { decided: true, productId: undefined },
+    });
+    expect(await fields()).not.toContain('defaultProduct');
+  });
+
   it('empresa na lista de espera não conecta gateway nem emite', async () => {
     h.registry.companies.set('11222333000181', sampleCompany({ cityCode: '3550308' }));
     const { pfx, password } = cert();

@@ -94,7 +94,23 @@ describe('AbacatePay', () => {
         },
       },
     });
-    expect(mapped).toEqual({ ignored: 'Pagamento sem itens nem metadata.productExternalId' });
+    expect(mapped).toEqual({
+      ignored: 'Pagamento sem produto (itens, metadata.productExternalId ou produto padrão)',
+    });
+  });
+
+  it('Pix sem produto usa o produto padrão da empresa; metadata e itens têm prioridade', () => {
+    const pix = (metadata?: Record<string, string>) => ({
+      event: 'transparent.completed',
+      data: { transparent: { id: 'pix_x', amount: 1000, metadata } },
+    });
+    expect(mapAbacatePayPayload(pix(), { defaultProductId: 'p-padrao' })).toMatchObject({
+      items: [{ productId: 'p-padrao', quantity: 1 }],
+      totalCents: 1000,
+    });
+    expect(
+      mapAbacatePayPayload(pix({ productExternalId: 'prod_video' }), { defaultProductId: 'p-padrao' })
+    ).toMatchObject({ items: [{ productExternalId: 'prod_video', quantity: 1 }] });
   });
 
   it('verifica HMAC do corpo bruto', () => {

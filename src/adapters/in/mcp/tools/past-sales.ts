@@ -5,6 +5,7 @@ import { Tenant } from '../../../../domain/tenant/tenant.js';
 import {
   PastSalesApplyReconciliationSchema,
   PastSalesIssueSchema,
+  PastSalesIgnoreSchema,
   PastSalesMarkSchema,
   PastSalesReconcileSchema,
   PastSalesScanSchema,
@@ -33,7 +34,7 @@ export function registerPastSalesTools(server: McpServer, c: Container, tenant: 
         'Prévia por mês (sem filtros) ou a lista de vendas de um mês/status para o usuário revisar e marcar as que já têm nota em outro sistema.',
       inputSchema: z.object({
         period: z.string().optional(),
-        status: z.array(z.enum(['AVAILABLE', 'ALREADY_ISSUED', 'IMPORTED', 'REFUNDED'])).optional(),
+        status: z.array(z.enum(['AVAILABLE', 'ALREADY_ISSUED', 'IMPORTED', 'REFUNDED', 'IGNORED'])).optional(),
       }),
       annotations: readOnly,
     },
@@ -59,6 +60,25 @@ export function registerPastSalesTools(server: McpServer, c: Container, tenant: 
           tenant,
           { ids: input.ids, period: input.period },
           input.alreadyIssued
+        )
+      )
+  );
+
+  server.registerTool(
+    'ignore_past_sales',
+    {
+      title: 'Ignorar pagamentos que não são venda',
+      description:
+        'Ignora (ou volta a considerar, com ignored: false) pagamentos que NÃO são venda e nunca devem virar nota, ex.: pagamentos de teste. Diferente de mark_past_sales_already_issued, que é para vendas com nota em outro sistema. Confirme com o usuário e registre o motivo.',
+      inputSchema: PastSalesIgnoreSchema,
+    },
+    (input) =>
+      run(() =>
+        c.pastSales.setIgnored(
+          tenant,
+          { ids: input.ids, period: input.period },
+          input.ignored,
+          input.reason
         )
       )
   );
