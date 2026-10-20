@@ -33,7 +33,12 @@ import {
 import { User } from '../../src/domain/account/user.js';
 import { PastSale } from '../../src/domain/backfill/past-sale.js';
 import { AccountantReport } from '../../src/domain/accounting/accountant-report.js';
-import { BillingAccount, BillingCharge, BillingPayment } from '../../src/domain/billing/billing.js';
+import {
+  BillingAccount,
+  BillingCharge,
+  BillingPayment,
+  BillingUsage,
+} from '../../src/domain/billing/billing.js';
 import { Certificate } from '../../src/domain/certificate/certificate.js';
 import { CityCoverage } from '../../src/domain/tenant/coverage.js';
 import { CustomerRecord } from '../../src/domain/customer/customer-record.js';
@@ -603,6 +608,20 @@ export class InMemoryBilling implements BillingRepository {
       .filter((a) => a.status === 'BLOCKED')
       .map((a) => a.tenantId);
     return [...new Set([...open, ...blocked])];
+  }
+  async usageByTenant(from: Date, to: Date) {
+    const usage = new Map<string, BillingUsage>();
+    for (const c of this.charges.values()) {
+      if (c.createdAt < from || c.createdAt >= to || c.status === 'WAIVED' || c.amountCents <= 0)
+        continue;
+      const u = usage.get(c.tenantId) ?? { tenantId: c.tenantId, invoiceCount: 0, totalCents: 0 };
+      usage.set(c.tenantId, {
+        ...u,
+        invoiceCount: u.invoiceCount + 1,
+        totalCents: u.totalCents + c.amountCents,
+      });
+    }
+    return [...usage.values()].sort((a, b) => a.tenantId.localeCompare(b.tenantId));
   }
   async getAccount(tenantId: string) {
     return copy(this.accounts.get(tenantId) ?? null);

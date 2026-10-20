@@ -38,7 +38,7 @@ export class RefundsController {
   ) {
     const input = parseInput(RefundSaleSchema, body);
     const origin = parseInput(
-      z.object({ source: z.enum(['API', 'MCP', 'ABACATEPAY']).default('API') }),
+      z.object({ source: z.enum(['API', 'MCP', 'ABACATEPAY', 'ACAINFE_BILLING']).default('API') }),
       { source }
     ).source;
     return this.c.refunds.refundSale(

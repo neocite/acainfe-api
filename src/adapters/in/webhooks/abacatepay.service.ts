@@ -103,6 +103,9 @@ export function mapAbacatePayPayload(payload: Json): RegisterSaleInput | { ignor
   }
 
   const checkout = data.checkout ?? data.transparent ?? data.billing;
+  // Pix da cobrança do açaínfe (metadata do createPayment): a nota do uso sai pela nota mensal.
+  if (checkout?.metadata?.paymentId && checkout?.metadata?.tenantId)
+    return { ignored: 'Pix de cobrança do açaínfe — a nota sai na nota mensal de uso' };
   if (!checkout?.items?.length) return { ignored: 'Checkout sem itens' };
   const customer = data.customer ?? {};
   return {

@@ -28,6 +28,15 @@ export class AdminBillingController {
     );
   }
 
+  @Post('monthly-invoices/:period')
+  @ApiOperation({
+    summary:
+      'Emite (ou completa) a nota mensal do uso do açaínfe de um mês fechado (AAAA-MM), uma por cliente',
+  })
+  monthlyInvoices(@Param('period') period: string) {
+    return this.c.billingInvoicing.invoicePeriod(period);
+  }
+
   @Get(':tenantId')
   summary(@Param('tenantId') tenantId: string) {
     return this.c.billing.summary(tenantId);

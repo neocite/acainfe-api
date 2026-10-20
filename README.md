@@ -175,6 +175,14 @@ Para o AbacatePay, chame `POST /v1/tenants/me/integrations/abacatepay`. A respos
   - **MCP:** `get_billing`, `list_billing_charges`, `pay_billing`.
   - **App:** `/v1/app/companies/:id/billing`.
   - **Landing:** `GET /v1/public/pricing`.
+- **Nota mensal do uso (receita do açaínfe):** a empresa que opera o açaínfe (`BILLING_INVOICE_ISSUER_CNPJ`) emite **uma NFS-e por cliente e mês**, com o total das notas emitidas no mês anterior. Regra validada pela contabilidade (Tactus).
+  - **O que entra no valor:** cobranças pagas ou em aberto. Notas canceladas depois também contam. Cobranças dispensadas (`WAIVED`) e de valor zero ficam de fora.
+  - **Quando e com que dados:** o job `billing-monthly-invoices` roda todo dia às 7h e fecha o mês anterior, com competência no mês do uso. A nota usa o produto `BILLING_INVOICE_PRODUCT_EXTERNAL_ID` (item 1.05, NBS 1.1103.29.00, código SBC 1.05/102313/1234, ISS 2,01%, IBPT 15,56%), e o cliente (CNPJ, razão social, e-mail, endereço) é o tomador.
+  - **Duplicidade:** a venda tem origem `ACAINFE_BILLING` e id `billing_<AAAA-MM>_<tenantId>`. Rodar de novo não duplica.
+  - **Sem nota para si mesma:** a operadora não emite nota para ela mesma. O preço dela deve ser zero (`PUT /v1/admin/billing/:tenantId/price`), senão cada nota própria geraria uma cobrança a pagar a si mesma.
+  - **Pix de cobrança:** o webhook AbacatePay da operadora ignora os Pix de cobrança (`metadata.paymentId`). A nota sai pela nota mensal.
+  - **Reprocessar um mês:** `POST /v1/admin/billing/monthly-invoices/:period`.
+  - **Produto sem tributação:** se o produto não existir ou estiver sem tributação, a venda fica retida e vira nota quando for liberada.
 
 ### MCP
 

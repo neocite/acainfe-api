@@ -79,6 +79,12 @@ const EnvSchema = z.object({
   BILLING_ABACATEPAY_API_KEY: z.string().optional(),
   /** Segredo do webhook da conta AbacatePay do açaínfe (evento transparent.completed). */
   BILLING_ABACATEPAY_WEBHOOK_SECRET: z.string().min(16).optional(),
+  /**
+   * Nota mensal do uso do açaínfe: CNPJ da empresa que emite (a operadora) e o externalId do produto
+   * "prestação de serviço açaí nfe". Sem os dois, nenhuma nota de uso é emitida.
+   */
+  BILLING_INVOICE_ISSUER_CNPJ: z.string().optional(),
+  BILLING_INVOICE_PRODUCT_EXTERNAL_ID: z.string().optional(),
   JOBS_ENABLED: bool.default(true),
   JOBS_PROCESS_EVERY: z.string().default('5 seconds'),
 });

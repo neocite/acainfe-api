@@ -32,6 +32,7 @@ import { CustomerService } from '../application/use-cases/customer.service.js';
 import { RefundService } from '../application/use-cases/refund.service.js';
 import { AccountService } from '../application/use-cases/account.service.js';
 import { BillingService } from '../application/use-cases/billing.service.js';
+import { BillingInvoicingService } from '../application/use-cases/billing-invoicing.service.js';
 import { AccountantService } from '../application/use-cases/accountant.service.js';
 import { PastSalesService } from '../application/use-cases/past-sales.service.js';
 import { FflateArchiveBuilder } from '../adapters/out/archive/fflate-archive.js';
@@ -120,6 +121,7 @@ export interface Container {
   onboarding: OnboardingService;
   fiscalSettings: FiscalSettingsService;
   billing: BillingService;
+  billingInvoicing: BillingInvoicingService;
   accountant: AccountantService;
   pastSales: PastSalesService;
   certificates: CertificateService;
@@ -284,6 +286,17 @@ export async function buildContainer(
       'BILLING_ABACATEPAY_API_KEY ausente: cobranças acumulam, mas o Pix não é gerado (só pagamento manual)'
     );
   }
+  const billingInvoicing = new BillingInvoicingService({
+    billing: repos.billing,
+    tenants: repos.tenants,
+    sales,
+    clock,
+    logger,
+    config: {
+      issuerCnpj: env.BILLING_INVOICE_ISSUER_CNPJ,
+      productExternalId: env.BILLING_INVOICE_PRODUCT_EXTERNAL_ID,
+    },
+  });
   const invoices = new InvoiceService({
     invoices: repos.invoices,
     tenants: repos.tenants,
@@ -388,6 +401,7 @@ export async function buildContainer(
     onboarding,
     fiscalSettings,
     billing,
+    billingInvoicing,
     accountant,
     pastSales,
     certificates,
@@ -402,6 +416,7 @@ export async function buildContainer(
         refunds,
         sales,
         billing,
+        billingInvoicing,
         accountant,
         certificates,
         logger,

@@ -26,7 +26,7 @@ export interface E2EApp {
 }
 
 /** Sobe a aplicação completa (HTTP + MCP + fila Agenda) contra Mongo real e Sefin fake. */
-export async function startE2EApp(): Promise<E2EApp> {
+export async function startE2EApp(envOverrides: Record<string, string> = {}): Promise<E2EApp> {
   const sefin = new FakeSefin();
   await sefin.start();
   const external = new FakeExternalApis();
@@ -57,6 +57,7 @@ export async function startE2EApp(): Promise<E2EApp> {
     GINFES_POLL_DELAYS_MS: '20,20,20,20',
     JOBS_ENABLED: 'true',
     JOBS_PROCESS_EVERY: '150',
+    ...envOverrides,
   });
   const email = new InMemoryEmailSender();
   const whatsapp = new InMemoryWhatsappSender();
