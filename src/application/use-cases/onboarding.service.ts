@@ -75,6 +75,19 @@ export interface CompanyStatus {
   abacatepay: AbacatePayIntegrationView;
 }
 
+export const MCP_KEY_PLACEHOLDER = '<SUA_CHAVE>';
+
+export interface McpConnectionGuide {
+  mcpUrl: string;
+  /** Marcador que aparece nos modelos no lugar da chave. */
+  keyPlaceholder: string;
+  authorizationHeader: string;
+  /** Comando do Claude Code. */
+  claudeCodeCommand: string;
+  /** Configuração JSON (mcpServers) para clientes que leem arquivo de configuração. */
+  jsonConfig: string;
+}
+
 export interface AbacatePayIntegrationView {
   connected: boolean;
   connectedAt?: Date;
@@ -683,21 +696,36 @@ export class OnboardingService {
   async issueMcpKey(
     tenant: Tenant,
     label?: string
-  ): Promise<{ apiKey: string; key: ApiKeyView; mcpUrl?: string; claudeCodeCommand?: string }> {
+  ): Promise<{ apiKey: string; key: ApiKeyView } & Partial<McpConnectionGuide>> {
     const { apiKey, key } = await this.deps.tenantService.issueApiKey(tenant.id, {
       label,
       via: 'APP',
     });
-    const mcpUrl = this.deps.publicBaseUrl
-      ? `${this.deps.publicBaseUrl.replace(/\/$/, '')}/mcp`
-      : undefined;
+    return { apiKey, key, ...this.mcpConnection(apiKey) };
+  }
+
+  /**
+   * Como conectar um cliente MCP. Sem chave, os modelos trazem o marcador MCP_KEY_PLACEHOLDER: o app
+   * mostra o guia a qualquer momento (a chave nunca é recuperável; quem a guardou só a cola no lugar).
+   */
+  mcpConnection(apiKey: string = MCP_KEY_PLACEHOLDER): McpConnectionGuide | Record<string, never> {
+    if (!this.deps.publicBaseUrl) return {};
+    const mcpUrl = `${this.deps.publicBaseUrl.replace(/\/$/, '')}/mcp`;
+    const authorizationHeader = `Authorization: Bearer ${apiKey}`;
     return {
-      apiKey,
-      key,
       mcpUrl,
-      claudeCodeCommand: mcpUrl
-        ? `claude mcp add --transport http acainfe ${mcpUrl} --header "Authorization: Bearer ${apiKey}"`
-        : undefined,
+      keyPlaceholder: MCP_KEY_PLACEHOLDER,
+      authorizationHeader,
+      claudeCodeCommand: `claude mcp add --transport http acainfe ${mcpUrl} --header "${authorizationHeader}"`,
+      jsonConfig: JSON.stringify(
+        {
+          mcpServers: {
+            acainfe: { type: 'http', url: mcpUrl, headers: { Authorization: `Bearer ${apiKey}` } },
+          },
+        },
+        null,
+        2
+      ),
     };
   }
 

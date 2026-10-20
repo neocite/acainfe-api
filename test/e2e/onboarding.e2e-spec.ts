@@ -290,6 +290,20 @@ describe('Onboarding self-service (app Replit → açaínfe → MCP)', () => {
     expect(res.body.claudeCodeCommand).toBe(
       `claude mcp add --transport http acainfe https://api.acainfe.test/mcp --header "Authorization: Bearer ${mcpKey}"`
     );
+    expect(JSON.parse(res.body.jsonConfig).mcpServers.acainfe.headers.Authorization).toBe(
+      `Bearer ${mcpKey}`
+    );
+    // Guia sem gerar chave (ex.: guardou a chave mas esqueceu como conectar).
+    const guide = await asUser(
+      http().get(`/v1/app/companies/${tenantId}/mcp-connection`)
+    ).expect(200);
+    expect(guide.body).toMatchObject({
+      mcpUrl: 'https://api.acainfe.test/mcp',
+      keyPlaceholder: '<SUA_CHAVE>',
+      claudeCodeCommand:
+        'claude mcp add --transport http acainfe https://api.acainfe.test/mcp --header "Authorization: Bearer <SUA_CHAVE>"',
+    });
+    expect(JSON.stringify(guide.body)).not.toContain(mcpKey);
     client = new Client({ name: 'agente', version: '1.0.0' });
     await client.connect(
       new StreamableHTTPClientTransport(new URL(`${ctx.baseUrl}/mcp`), {
