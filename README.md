@@ -258,6 +258,20 @@ Prompts disponíveis: `configurar_empresa` (onboarding guiado) e `emitir_nota`.
   - `FAILED`: a prefeitura recusou, por exemplo por prazo expirado. Exige ação manual.
 - **AbacatePay:** os eventos `checkout.refunded`, `transparent.refunded` e `*.lost` (chargeback perdido) disparam o estorno automaticamente.
 
+## Deploy (VPS com PM2)
+
+1. **Uma vez, na máquina:** `sudo DOMAIN=api.acainfe.com EMAIL=voce@exemplo.com ./scripts/setup-server.sh`. Ele instala Node 22, pnpm e PM2, cria o site no nginx, emite o HTTPS (Let's Encrypt) e liga o PM2 na inicialização da máquina.
+2. **Coloque o `.env`** na pasta do projeto, nunca pelo git:
+   - `chmod 600 .env`;
+   - `NODE_ENV=production`;
+   - `PUBLIC_BASE_URL=https://api.acainfe.com`;
+   - a **mesma** `MASTER_KEYS` de antes, porque os certificados A1 estão cifrados com ela.
+3. **A cada atualização:** `./scripts/deploy.sh`.
+   - Confere o `.env` sem exibir os valores, faz `git pull`, `pnpm install`, os testes e o build.
+   - Recarrega no PM2 (`ecosystem.config.cjs`) e espera o `/health` responder.
+   - Se a API não subir, volta sozinho para a versão anterior.
+   - Use `SKIP_TESTS=1` para pular os testes e `BRANCH=...` para outra branch.
+
 ## Testes
 
 ```bash
