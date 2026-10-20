@@ -38,6 +38,7 @@ import { PastSalesService } from '../application/use-cases/past-sales.service.js
 import { FflateArchiveBuilder } from '../adapters/out/archive/fflate-archive.js';
 import { AbacatePayBillingGateway } from '../adapters/out/gateway/abacatepay-billing-gateway.js';
 import { OnboardingService } from '../application/use-cases/onboarding.service.js';
+import { TestCompanyRegistry } from '../adapters/out/registry/test-company-registry.js';
 import { BrasilApiCompanyRegistry } from '../adapters/out/registry/brasilapi-company-registry.js';
 import { AbacatePayAdminClient } from '../adapters/out/gateway/abacatepay-admin-client.js';
 import { createCoverage } from '../domain/tenant/coverage.js';
@@ -362,7 +363,12 @@ export async function buildContainer(
     coverage: repos.coverage,
     products: repos.products,
     parser: new ForgeCertificateParser(),
-    registry: overrides.registry ?? new BrasilApiCompanyRegistry(env.BRASILAPI_URL),
+    registry:
+      overrides.registry ??
+      new TestCompanyRegistry(
+        new BrasilApiCompanyRegistry(env.BRASILAPI_URL),
+        env.TEST_COMPANY_CNPJS
+      ),
     gateway: paymentGateway,
     cipher,
     email,
