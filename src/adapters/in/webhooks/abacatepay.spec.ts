@@ -62,21 +62,39 @@ describe('AbacatePay', () => {
     ).toHaveProperty('ignored');
   });
 
-  it('ignora o Pix de cobrança do açaínfe (a nota sai na nota mensal de uso)', () => {
+  it('Pix transparente vira venda do produto informado em metadata.productExternalId', () => {
+    const mapped = mapAbacatePayPayload({
+      event: 'transparent.completed',
+      data: {
+        transparent: {
+          id: 'pix_char_jely',
+          amount: 3000,
+          paidAmount: 3000,
+          metadata: { productExternalId: 'prod_jely' },
+        },
+        customer: { name: 'Ana', email: 'ana@x.com' },
+      },
+    });
+    expect(mapped).toMatchObject({
+      externalId: 'pix_char_jely',
+      totalCents: 3000,
+      items: [{ productExternalId: 'prod_jely', quantity: 1 }],
+      customer: { name: 'Ana', email: 'ana@x.com' },
+    });
+  });
+
+  it('ignora Pix sem produto (ex.: cobrança do açaínfe, cuja nota sai na nota mensal)', () => {
     const mapped = mapAbacatePayPayload({
       event: 'transparent.completed',
       data: {
         transparent: {
           id: 'pix_char_1',
           amount: 1440,
-          items: [{ id: 'qualquer', quantity: 1 }],
           metadata: { tenantId: 'client-xpto', paymentId: 'pay_1' },
         },
       },
     });
-    expect(mapped).toEqual({
-      ignored: 'Pix de cobrança do açaínfe — a nota sai na nota mensal de uso',
-    });
+    expect(mapped).toEqual({ ignored: 'Pagamento sem itens nem metadata.productExternalId' });
   });
 
   it('verifica HMAC do corpo bruto', () => {

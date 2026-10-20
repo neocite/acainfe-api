@@ -103,10 +103,15 @@ export function mapAbacatePayPayload(payload: Json): RegisterSaleInput | { ignor
   }
 
   const checkout = data.checkout ?? data.transparent ?? data.billing;
-  // Pix da cobrança do açaínfe (metadata do createPayment): a nota do uso sai pela nota mensal.
-  if (checkout?.metadata?.paymentId && checkout?.metadata?.tenantId)
-    return { ignored: 'Pix de cobrança do açaínfe — a nota sai na nota mensal de uso' };
-  if (!checkout?.items?.length) return { ignored: 'Checkout sem itens' };
+  // Pix transparente não tem itens: quem gera o Pix informa o produto em metadata.productExternalId.
+  // Sem isso (ex.: Pix de cobrança do açaínfe, cuja nota sai na nota mensal), não há nota.
+  const pixProduct = checkout?.metadata?.productExternalId;
+  const items: Json[] = checkout?.items?.length
+    ? checkout.items
+    : pixProduct
+      ? [{ id: pixProduct, quantity: 1 }]
+      : [];
+  if (!items.length) return { ignored: 'Pagamento sem itens nem metadata.productExternalId' };
   const customer = data.customer ?? {};
   return {
     source: 'ABACATEPAY',
@@ -119,7 +124,7 @@ export function mapAbacatePayPayload(payload: Json): RegisterSaleInput | { ignor
       // taxId chega mascarado no v2 ("123.***.***-**"); createCustomer descarta valores mascarados.
       taxId: customer.taxId || undefined,
     },
-    items: checkout.items.map((i: Json) => ({
+    items: items.map((i: Json) => ({
       productExternalId: String(i.id),
       quantity: Number(i.quantity ?? 1),
     })),
