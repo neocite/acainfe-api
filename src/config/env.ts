@@ -85,6 +85,14 @@ const EnvSchema = z.object({
    */
   BILLING_INVOICE_ISSUER_CNPJ: z.string().optional(),
   BILLING_INVOICE_PRODUCT_EXTERNAL_ID: z.string().optional(),
+  /**
+   * CNPJs de teste (separados por vírgula): o onboarding não consulta a Receita e usa uma empresa
+   * fictícia do Simples em São Bernardo. Para testar com certificado autoassinado; apague depois no banco.
+   */
+  TEST_COMPANY_CNPJS: z
+    .string()
+    .default('')
+    .transform((v) => v.split(',').map((c) => c.trim()).filter(Boolean)),
   JOBS_ENABLED: bool.default(true),
   JOBS_PROCESS_EVERY: z.string().default('5 seconds'),
 });
