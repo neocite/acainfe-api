@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+test
+.env
+.env.*
+*.pfx
+*.p12
+.git
