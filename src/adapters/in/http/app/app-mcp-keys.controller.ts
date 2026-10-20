@@ -37,6 +37,16 @@ export class AppMcpKeysController {
     return this.c.onboarding.issueMcpKey(tenant, parseInput(IssueKeySchema, body).label);
   }
 
+  @Get('mcp-connection')
+  @ApiOperation({
+    summary:
+      'Guia de conexão do MCP sem gerar chave: URL e modelos (Claude Code, JSON) com <SUA_CHAVE> no lugar da chave',
+  })
+  async connection(@CurrentUser() user: User, @Param('tenantId') tenantId: string) {
+    await this.c.accounts.ownedTenant(user, tenantId);
+    return this.c.onboarding.mcpConnection();
+  }
+
   @Get('mcp-keys')
   @ApiOperation({
     summary: 'Chaves ativas (sem o segredo): nome, final, criação e último uso',
