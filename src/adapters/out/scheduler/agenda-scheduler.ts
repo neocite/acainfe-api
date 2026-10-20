@@ -9,6 +9,7 @@ export const JOBS = {
   refundInvoice: 'refund-invoice',
   chargeInvoice: 'charge-invoice',
   billingDaily: 'billing-daily',
+  billingInvoices: 'billing-monthly-invoices',
   accountantMonthly: 'accountant-monthly',
   reconcile: 'reconcile-invoices',
   certificateExpiry: 'certificate-expiry-warning',

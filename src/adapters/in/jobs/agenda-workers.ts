@@ -2,6 +2,7 @@ import { Agenda } from 'agenda';
 import { Logger } from '../../../application/ports/services.js';
 import { AccountantService } from '../../../application/use-cases/accountant.service.js';
 import { BillingService } from '../../../application/use-cases/billing.service.js';
+import { BillingInvoicingService } from '../../../application/use-cases/billing-invoicing.service.js';
 import { CertificateService } from '../../../application/use-cases/certificate.service.js';
 import { InvoiceService } from '../../../application/use-cases/invoice.service.js';
 import { RefundService } from '../../../application/use-cases/refund.service.js';
@@ -16,6 +17,7 @@ export async function registerWorkers(
     refunds: RefundService;
     sales: SaleService;
     billing: BillingService;
+    billingInvoicing: BillingInvoicingService;
     accountant: AccountantService;
     certificates: CertificateService;
     logger: Logger;
@@ -64,6 +66,12 @@ export async function registerWorkers(
     services.logger.info('Ciclo diário de cobrança', result);
   });
 
+  agenda.define(JOBS.billingInvoices, async () => {
+    const result = await services.billingInvoicing.runMonthly();
+    if (result && (result.registered || result.held || result.failed.length))
+      services.logger.info('Nota mensal do açaínfe', result);
+  });
+
   agenda.define(JOBS.reconcile, async () => {
     const charged = await services.billing.sweepUnbilled();
     if (charged) services.logger.info('Cobranças geradas pela varredura', { charged });
@@ -85,6 +93,9 @@ export async function registerWorkers(
       timezone: 'America/Sao_Paulo',
     });
     await agenda.every('0 9 * * *', JOBS.billingDaily, undefined, {
+      timezone: 'America/Sao_Paulo',
+    });
+    await agenda.every('0 7 * * *', JOBS.billingInvoices, undefined, {
       timezone: 'America/Sao_Paulo',
     });
     await agenda.every('0 8 * * *', JOBS.accountantMonthly, undefined, {

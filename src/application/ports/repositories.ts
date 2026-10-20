@@ -1,7 +1,12 @@
 import { User } from '../../domain/account/user.js';
 import { PastSale } from '../../domain/backfill/past-sale.js';
 import { AccountantReport } from '../../domain/accounting/accountant-report.js';
-import { BillingAccount, BillingCharge, BillingPayment } from '../../domain/billing/billing.js';
+import {
+  BillingAccount,
+  BillingCharge,
+  BillingPayment,
+  BillingUsage,
+} from '../../domain/billing/billing.js';
 import { Certificate } from '../../domain/certificate/certificate.js';
 import { CityCoverage } from '../../domain/tenant/coverage.js';
 import { CustomerRecord } from '../../domain/customer/customer-record.js';
@@ -182,6 +187,8 @@ export interface BillingRepository {
   markChargesPaid(chargeIds: string[], paidAt: Date, settledBy: string): Promise<void>;
   /** Empresas com cobrança em aberto ou conta bloqueada (para o job diário). */
   tenantsToReview(): Promise<string[]>;
+  /** Cobranças criadas em [from, to) por empresa, sem as dispensadas e sem valor zero. */
+  usageByTenant(from: Date, to: Date): Promise<BillingUsage[]>;
   getAccount(tenantId: string): Promise<BillingAccount | null>;
   saveAccount(account: BillingAccount): Promise<void>;
   listAccounts(status?: BillingAccount['status']): Promise<BillingAccount[]>;

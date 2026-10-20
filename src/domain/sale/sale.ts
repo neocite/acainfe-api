@@ -2,7 +2,8 @@ import { DomainError } from '../shared/domain-error.js';
 import { assertCents, Cents } from '../shared/money.js';
 import { Customer } from './customer.js';
 
-export type SaleSource = 'API' | 'MCP' | 'ABACATEPAY';
+/** ACAINFE_BILLING: nota mensal que a operadora do açaínfe emite para cada cliente pelo uso. */
+export type SaleSource = 'API' | 'MCP' | 'ABACATEPAY' | 'ACAINFE_BILLING';
 
 export interface SaleItem {
   productId: string;

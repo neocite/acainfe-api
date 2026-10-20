@@ -62,6 +62,23 @@ describe('AbacatePay', () => {
     ).toHaveProperty('ignored');
   });
 
+  it('ignora o Pix de cobrança do açaínfe (a nota sai na nota mensal de uso)', () => {
+    const mapped = mapAbacatePayPayload({
+      event: 'transparent.completed',
+      data: {
+        transparent: {
+          id: 'pix_char_1',
+          amount: 1440,
+          items: [{ id: 'qualquer', quantity: 1 }],
+          metadata: { tenantId: 'client-xpto', paymentId: 'pay_1' },
+        },
+      },
+    });
+    expect(mapped).toEqual({
+      ignored: 'Pix de cobrança do açaínfe — a nota sai na nota mensal de uso',
+    });
+  });
+
   it('verifica HMAC do corpo bruto', () => {
     const body = Buffer.from('{"event":"checkout.completed"}');
     const sig = createHmac('sha256', ABACATEPAY_PUBLIC_HMAC_KEY).update(body).digest('base64');

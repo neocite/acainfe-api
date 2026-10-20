@@ -49,6 +49,14 @@ export interface BillingPayment {
   paidAmountCents?: Cents;
 }
 
+/** Uso do açaínfe por uma empresa num período: base da nota mensal consolidada. */
+export interface BillingUsage {
+  tenantId: string;
+  /** Notas emitidas (canceladas depois também contam). */
+  invoiceCount: number;
+  totalCents: Cents;
+}
+
 /** Pix mínimo aceito pelo AbacatePay. */
 export const MIN_PIX_CENTS = 100;
 

@@ -21,7 +21,12 @@ import {
 import { User } from '../../../domain/account/user.js';
 import { PastSale } from '../../../domain/backfill/past-sale.js';
 import { AccountantReport } from '../../../domain/accounting/accountant-report.js';
-import { BillingAccount, BillingCharge, BillingPayment } from '../../../domain/billing/billing.js';
+import {
+  BillingAccount,
+  BillingCharge,
+  BillingPayment,
+  BillingUsage,
+} from '../../../domain/billing/billing.js';
 import { Certificate } from '../../../domain/certificate/certificate.js';
 import { CityCoverage } from '../../../domain/tenant/coverage.js';
 import { CustomerRecord } from '../../../domain/customer/customer-record.js';
@@ -181,6 +186,8 @@ export async function ensureIndexes(db: Db): Promise<void> {
       // Garante no máximo uma cobrança por nota (idempotência do outbox).
       { key: { invoiceId: 1 }, unique: true },
       { key: { tenantId: 1, status: 1, createdAt: 1 } },
+      // Nota mensal consolidada (uso por período).
+      { key: { createdAt: 1 } },
     ]),
     db.collection(COLLECTIONS.billingAccounts).createIndexes([{ key: { status: 1 } }]),
     db.collection(COLLECTIONS.billingPayments).createIndexes([
@@ -731,6 +738,29 @@ export class MongoBillingRepository implements BillingRepository {
       this.accounts.distinct('_id', { status: 'BLOCKED' }),
     ]);
     return [...new Set([...open, ...blocked].map(String))];
+  }
+  async usageByTenant(from: Date, to: Date): Promise<BillingUsage[]> {
+    const rows = await this.charges
+      .aggregate<BillingUsage>([
+        {
+          $match: {
+            createdAt: { $gte: from, $lt: to },
+            status: { $ne: 'WAIVED' },
+            amountCents: { $gt: 0 },
+          },
+        },
+        {
+          $group: {
+            _id: '$tenantId',
+            invoiceCount: { $sum: 1 },
+            totalCents: { $sum: '$amountCents' },
+          },
+        },
+        { $project: { _id: 0, tenantId: '$_id', invoiceCount: 1, totalCents: 1 } },
+        { $sort: { tenantId: 1 } },
+      ])
+      .toArray();
+    return rows;
   }
   async getAccount(tenantId: string): Promise<BillingAccount | null> {
     const doc = await this.accounts.findOne({ _id: tenantId });
