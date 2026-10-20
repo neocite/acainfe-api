@@ -81,8 +81,11 @@ export interface AbacatePayIntegrationView {
   webhookEndpoint?: string;
   /** false = o webhook aponta para outra URL (recrie); null = não sabemos (conectado antes do registro). */
   webhookUpToDate: boolean | null;
-  /** Produto da nota quando o pagamento não informa o produto. decided=false: ainda não perguntado. */
-  defaultProduct?: { decided: boolean; productId?: string };
+  /**
+   * Produto da nota quando o pagamento não informa o produto. decided=false: ainda não perguntado;
+   * productId null = nenhum (sempre presente, para o app comparar com o que enviou).
+   */
+  defaultProduct?: { decided: boolean; productId: string | null };
 }
 
 export interface EmissionView {
@@ -398,7 +401,7 @@ export class OnboardingService {
       webhookUpToDate: a.webhookEndpoint && expected ? a.webhookEndpoint === expected : null,
       defaultProduct: {
         decided: Boolean(a.defaultProductDecidedAt),
-        productId: a.defaultProductId,
+        productId: a.defaultProductId ?? null,
       },
     };
   }
@@ -464,7 +467,7 @@ export class OnboardingService {
      */
     defaultProduct: {
       decided: boolean;
-      productId?: string;
+      productId: string | null;
       suggestedProductId?: string;
       options: { id: string; name: string }[];
     };
@@ -601,7 +604,7 @@ export class OnboardingService {
       pastSales,
       defaultProduct: {
         decided: Boolean(decided.defaultProductDecidedAt),
-        productId: decided.defaultProductId,
+        productId: decided.defaultProductId ?? null,
         suggestedProductId: productOptions.length === 1 ? productOptions[0].id : undefined,
         options: productOptions,
       },

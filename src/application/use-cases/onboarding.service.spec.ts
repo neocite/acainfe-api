@@ -195,6 +195,7 @@ describe('Onboarding self-service', () => {
     const [mentoria] = (await h.products.list(tenant.id, {})).items;
     expect(r.defaultProduct).toEqual({
       decided: false,
+      productId: null,
       suggestedProductId: mentoria.id,
       options: [{ id: mentoria.id, name: 'Mentoria' }],
     });
@@ -218,7 +219,7 @@ describe('Onboarding self-service', () => {
 
     // "Nenhum" também é uma decisão: some da pendência e não há produto padrão.
     expect(await h.onboarding.setDefaultProduct(tenant, null)).toMatchObject({
-      defaultProduct: { decided: true, productId: undefined },
+      defaultProduct: { decided: true, productId: null },
     });
     expect(await fields()).not.toContain('defaultProduct');
   });

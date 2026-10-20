@@ -150,6 +150,18 @@ describe('Webhook AbacatePay', () => {
       .send({ productId: suporte.id })
       .expect(200);
     expect(set.body.defaultProduct).toEqual({ decided: true, productId: suporte.id });
+    // "Nenhum": productId volta explicitamente null no JSON (o app compara com o que enviou).
+    const none = await http()
+      .put('/v1/tenants/me/integrations/abacatepay/default-product')
+      .set('x-api-key', apiKey)
+      .send({ productId: null })
+      .expect(200);
+    expect(none.body.defaultProduct).toEqual({ decided: true, productId: null });
+    await http()
+      .put('/v1/tenants/me/integrations/abacatepay/default-product')
+      .set('x-api-key', apiKey)
+      .send({ productId: suporte.id })
+      .expect(200);
 
     const withDefault = await post(pix('pix_padrao')).expect(200);
     expect(withDefault.body.status).toBe('ACCEPTED');
