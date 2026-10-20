@@ -35,6 +35,10 @@ Toda a operação pode ser feita por aqui. Fluxo típico:
     já são buscados (monthsBack, padrão 3 meses). scan_past_sales busca de novo, com outro período.
     list_past_sales mostra as vendas pagas sem nota. ANTES de emitir, rode reconcile_past_sales: ele cruza com as
     notas que a prefeitura já tem (ex.: emitidas pelo eNotas); mostre o resultado e aplique só o que o usuário confirmar. Pergunte se alguma já tem nota em
-    outro sistema (mark_past_sales_already_issued) e emita com issue_past_sales; meses anteriores exigem aviso e confirmação.
+    outro sistema (mark_past_sales_already_issued), ignore pagamentos que não são venda, como testes (ignore_past_sales),
+    e emita com issue_past_sales; meses anteriores exigem aviso e confirmação.
+11. Pagamento sem produto (Pix transparente): o produto da nota vem dos itens, de metadata.productExternalId do Pix
+    ou do produto padrão da empresa. Depois de connect_abacatepay, pergunte qual produto usar quando o pagamento
+    vier sem produto (ou "nenhum") e chame set_default_product.
 Todos os números são INTEIROS: dinheiro em centavos (R$ 82,20 = 8220) e percentuais em pontos-base,
 centésimos de % (ISS 2,01% = 201; IBPT 15,53% = 1553; Simples 6% = 600). Converta o que o usuário disser.`;

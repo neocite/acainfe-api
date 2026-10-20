@@ -105,6 +105,10 @@ export interface Tenant {
       /** URL do webhook cadastrado no AbacatePay (sem o segredo): mostra se ficou desatualizada. */
       webhookEndpoint?: string;
       connectedAt?: Date;
+      /** Produto usado quando o pagamento não informa o produto (ex.: Pix transparente sem itens). */
+      defaultProductId?: string;
+      /** Quando o usuário escolheu o produto padrão — ou decidiu não ter um (sem defaultProductId). */
+      defaultProductDecidedAt?: Date;
     };
   };
   apiKeyHashes: string[];
@@ -428,6 +432,13 @@ export function tenantReadiness(
       field: 'approximateTaxes',
       message:
         'Tributos aproximados (Lei 12.741): a nota deve trazer "Valor aprox. dos tributos: R$ X. Fonte: IBPT". Confirme o percentual com seu contador (serviços: 15,53% na tabela do IBPT).',
+    });
+  }
+  if (tenant.integrations.abacatepay && !tenant.integrations.abacatepay.defaultProductDecidedAt) {
+    recommended.push({
+      field: 'defaultProduct',
+      message:
+        'Produto padrão do AbacatePay: quando um pagamento chega sem produto (ex.: Pix transparente), qual produto vai na nota? Escolha um ou "nenhum" (aí esses pagamentos não geram nota).',
     });
   }
   return { canIssue: missing.length === 0, missing, recommended };

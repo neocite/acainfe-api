@@ -374,6 +374,16 @@ export const RecreateWebhookSchema = z.object({
     .describe('API key do AbacatePay (WEBHOOK:CREATE). Omita para usar a key já conectada'),
 });
 
+export const DefaultProductSchema = z.object({
+  productId: z
+    .string()
+    .min(1)
+    .nullable()
+    .describe(
+      'Produto (id no açaínfe) da nota quando o pagamento não informa o produto. null = nenhum: não gera nota'
+    ),
+});
+
 export const PastSalesScanSchema = z.object({
   monthsBack: z
     .number()
@@ -394,6 +404,20 @@ export const PastSalesMarkSchema = z.object({
   alreadyIssued: z
     .boolean()
     .describe('true = já tem nota em outro sistema (não emitir); false = desfazer'),
+});
+
+export const PastSalesIgnoreSchema = z.object({
+  ids: z.array(z.string()).optional().describe('Pagamentos específicos (ids da prévia)'),
+  period: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/)
+    .optional()
+    .describe('Ou todos os pagamentos do mês AAAA-MM'),
+  ignored: z
+    .boolean()
+    .default(true)
+    .describe('true = não é venda (ex.: teste), nunca emitir; false = desfazer'),
+  reason: z.string().max(200).optional().describe('Motivo, ex.: "pagamento de teste"'),
 });
 
 export const PastSalesIssueSchema = z.object({
@@ -451,5 +475,5 @@ export const PastSalesListSchema = z.object({
         ? undefined
         : (Array.isArray(v) ? v : v.split(',')).map((x) => x.trim().toUpperCase())
     )
-    .pipe(z.array(z.enum(['AVAILABLE', 'ALREADY_ISSUED', 'IMPORTED', 'REFUNDED'])).optional()),
+    .pipe(z.array(z.enum(['AVAILABLE', 'ALREADY_ISSUED', 'IMPORTED', 'REFUNDED', 'IGNORED'])).optional()),
 });

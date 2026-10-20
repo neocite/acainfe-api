@@ -94,6 +94,7 @@ describe('Vendas passadas (antes do açaínfe)', () => {
           alreadyIssued: 0,
           imported: 0,
           refunded: 0,
+          ignored: 0,
         },
         {
           period: '2026-09',
@@ -103,6 +104,7 @@ describe('Vendas passadas (antes do açaínfe)', () => {
           alreadyIssued: 0,
           imported: 0,
           refunded: 1,
+          ignored: 0,
         },
       ],
     });
@@ -222,6 +224,63 @@ describe('Vendas passadas (antes do açaínfe)', () => {
     expect((await h.pastSales.setAlreadyIssued(tenant, { period: '2026-10' }, false)).updated).toBe(
       3
     );
+  });
+
+  it('Pix sem item usa o produto padrão da empresa', async () => {
+    await h.onboarding.connectAbacatePay(tenant, h.gateway.validKey);
+    await reload();
+    const curso = (await h.products.list(tenant.id, {})).items[0];
+    await h.products.confirmTax(
+      tenant,
+      curso.id,
+      { nationalServiceCode: '080201' },
+      { userConfirmed: true, via: 'API' }
+    );
+    await h.onboarding.setDefaultProduct(tenant, curso.id);
+    await reload();
+    await h.pastSales.reconcile(tenant, '2026-10');
+    const r = await h.pastSales.issue(tenant, { period: '2026-10' });
+    expect(r).toMatchObject({ issued: 3, skippedWithoutProduct: 0 });
+    const pix = (await h.repos.sales.findByExternalId(
+      tenant.id,
+      'ABACATEPAY',
+      'pix_out3',
+      tenant.environment
+    ))!;
+    expect(pix.items).toEqual([expect.objectContaining({ productId: curso.id, totalCents: 5000 })]);
+  });
+
+  it('pagamentos de teste podem ser ignorados: não emitem, sobrevivem à nova varredura e voltam se desfeito', async () => {
+    await h.onboarding.connectAbacatePay(tenant, h.gateway.validKey);
+    await reload();
+    const [pix] = await h.pastSales.list(tenant, { period: '2026-10', status: ['AVAILABLE'] }).then(
+      (items) => items.filter((i) => i.externalId === 'pix_out3')
+    );
+    expect(
+      await h.pastSales.setIgnored(tenant, { ids: [pix.id] }, true, 'pagamento de teste')
+    ).toEqual({ updated: 1 });
+    expect((await h.pastSales.setIgnored(tenant, { period: '2026-09' }, true)).updated).toBe(1);
+
+    await h.pastSales.scan(tenant);
+    const [ignored] = await h.pastSales.list(tenant, { status: ['IGNORED'], period: '2026-10' });
+    expect(ignored).toMatchObject({ externalId: 'pix_out3', ignoredReason: 'pagamento de teste' });
+    expect((await h.pastSales.summary(tenant)).find((p) => p.period === '2026-09')).toMatchObject({
+      available: { count: 0 },
+      ignored: 1,
+      refunded: 1,
+    });
+    const r = await h.pastSales.issue(tenant, {
+      period: '2026-09',
+      confirmPastPeriod: true,
+      skipReconciliation: true,
+    });
+    expect(r).toMatchObject({ issued: 0, held: 0 });
+
+    expect((await h.pastSales.setIgnored(tenant, { ids: [pix.id] }, false)).updated).toBe(1);
+    const [back] = await h.pastSales.list(tenant, { status: ['AVAILABLE'], period: '2026-10' }).then(
+      (items) => items.filter((i) => i.externalId === 'pix_out3')
+    );
+    expect(back.ignoredReason).toBeUndefined();
   });
 
   it('exige AbacatePay conectado', async () => {

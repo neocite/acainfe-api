@@ -2,6 +2,7 @@ import type { Container } from '../../../../config/container.js';
 import type { Tenant } from '../../../../domain/tenant/tenant.js';
 import {
   PastSalesApplyReconciliationSchema,
+  PastSalesIgnoreSchema,
   PastSalesIssueSchema,
   PastSalesListSchema,
   PastSalesMarkSchema,
@@ -28,6 +29,15 @@ export class PastSalesOps {
       tenant,
       { ids: input.ids, period: input.period },
       input.alreadyIssued
+    );
+  }
+  ignore(tenant: Tenant, body: unknown) {
+    const input = parseInput(PastSalesIgnoreSchema, body);
+    return this.c.pastSales.setIgnored(
+      tenant,
+      { ids: input.ids, period: input.period },
+      input.ignored,
+      input.reason
     );
   }
   issue(tenant: Tenant, body: unknown) {

@@ -175,7 +175,6 @@ Para o AbacatePay, chame `POST /v1/tenants/me/integrations/abacatepay`. A respos
   - **MCP:** `get_billing`, `list_billing_charges`, `pay_billing`.
   - **App:** `/v1/app/companies/:id/billing`.
   - **Landing:** `GET /v1/public/pricing`.
-- **Pix transparente:** o Pix transparente chega sem itens. Quem gera o Pix informa o produto em `metadata.productExternalId`, e o webhook transforma o pagamento em venda desse produto pelo valor pago. Sem esse campo, o pagamento não gera nota.
 - **Nota mensal do uso (receita do açaínfe):** a empresa que opera o açaínfe (`BILLING_INVOICE_ISSUER_CNPJ`) emite **uma NFS-e por cliente e mês**, com o total das notas emitidas no mês anterior. Regra validada pela contabilidade (Tactus).
   - **O que entra no valor:** cobranças pagas ou em aberto. Notas canceladas depois também contam. Cobranças dispensadas (`WAIVED`) e de valor zero ficam de fora.
   - **Quando e com que dados:** o job `billing-monthly-invoices` roda todo dia às 7h e fecha o mês anterior, com competência no mês do uso. A nota usa o produto `BILLING_INVOICE_PRODUCT_EXTERNAL_ID` (item 1.05, NBS 1.1103.29.00, código SBC 1.05/102313/1234, ISS 2,01%, IBPT 15,56%), e o cliente (CNPJ, razão social, e-mail, endereço) é o tomador.
@@ -224,6 +223,20 @@ Prompts disponíveis: `configurar_empresa` (onboarding guiado) e `emitir_nota`.
 - **NBS:** produtos sem código NBS vêm com um aviso (`warnings`), e o assistente é instruído a sempre sugerir o NBS.
 - **Preparação para o Ginfes (fase 2):** os campos `localServiceCode` (código municipal no formato livre, ex.: `8.02/103911/1551`) e `culturalIncentive` já são guardados. O adapter SOAP do Ginfes ainda não existe.
 
+### Pagamento sem produto (Pix transparente)
+
+O Pix transparente do AbacatePay chega sem itens. O produto da nota é decidido, nesta ordem, pelo webhook e pela importação de vendas antigas:
+
+1. **Itens do checkout.**
+2. **`metadata.productExternalId` do Pix.** O sistema que gera o Pix informa o id do produto no AbacatePay. É o caminho recomendado quando a conta vende mais de um produto por Pix.
+3. **Produto padrão da empresa.** Ao conectar o AbacatePay, o onboarding pergunta qual produto usar quando o pagamento não traz produto, ou "nenhum".
+   - Com um produto só, ele já vem sugerido (`defaultProduct.suggestedProductId`).
+   - Enquanto não houver decisão, `readiness.recommended` traz `defaultProduct`.
+   - Onde definir: `set_default_product` (MCP), `PUT /v1/tenants/me/integrations/abacatepay/default-product` ou `PUT /v1/app/companies/:id/abacatepay/default-product`, com `{ "productId": "..." | null }`.
+4. **Nenhum dos anteriores:** o pagamento não gera nota.
+
+Com produto padrão, **todo** Pix sem produto vira nota, inclusive testes. Por isso, a operadora do açaínfe fica sem padrão: o Pix de cobrança cai na conta dela e não pode virar nota.
+
 ### Vendas passadas do AbacatePay (antes do açaínfe)
 
 - **Prévia automática:** ao conectar o AbacatePay, o açaínfe lê checkouts, Pix avulsos e renovações de assinatura dos últimos meses (`/checkouts/list`, `/transparents/list`, `/subscriptions/checkouts/list`, mais `/customers/list` para os dados do tomador). Monta uma **prévia por mês** e não emite nada sozinho.
@@ -241,7 +254,8 @@ Prompts disponíveis: `configurar_empresa` (onboarding guiado) e `emitir_nota`.
   - **Marcação:** `apply_past_sales_reconciliation` marca as vendas confirmadas como "já emitidas" e guarda o número da nota (`matchedNfse`).
   - **Bloqueio:** quando o provedor permite consultar a prefeitura, `issue_past_sales` recusa meses não cruzados, a menos que o usuário aceite o risco com `skipReconciliation: true`.
 - **Sem duplicidade:** as vendas viram vendas normais com o mesmo id do AbacatePay, então um webhook atrasado não duplica nada. Produto sem tributação confirmada retém a venda até a confirmação.
-- **Onde usar:** REST em `/v1/past-sales/*`, app em `/v1/app/companies/:id/past-sales/*` e MCP em `scan_past_sales`, `list_past_sales`, `mark_past_sales_already_issued` e `issue_past_sales`.
+- **Onde usar:** REST em `/v1/past-sales/*`, app em `/v1/app/companies/:id/past-sales/*` e MCP em `scan_past_sales`, `list_past_sales`, `mark_past_sales_already_issued`, `ignore_past_sales` e `issue_past_sales`.
+- **Pagamentos que não são venda** (ex.: testes): `ignore_past_sales` (ou `POST .../past-sales/ignore`) marca como `IGNORED`, com motivo. Eles nunca viram nota e continuam ignorados numa nova varredura. Para desfazer, use `ignored: false`.
 - **Reconectar o AbacatePay** (ex.: key com mais permissões) não cria outro webhook nem troca o segredo.
 
 ### Envio mensal ao contador

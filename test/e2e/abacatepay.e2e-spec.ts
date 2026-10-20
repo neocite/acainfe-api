@@ -122,6 +122,47 @@ describe('Webhook AbacatePay', () => {
     expect(res.body.status).toBe('IGNORED');
   });
 
+  it('Pix transparente: produto do metadata; sem ele, só com o produto padrão da empresa', async () => {
+    const pix = (id: string, metadata?: Record<string, string>) => ({
+      id: `log_${id}`,
+      event: 'transparent.completed',
+      devMode: true,
+      data: {
+        transparent: { id, amount: 3000, paidAmount: 3000, status: 'PAID', metadata },
+        customer: { name: 'Ana', email: 'ana@exemplo.com' },
+      },
+    });
+    const withMetadata = await post(
+      pix('pix_meta', { productExternalId: 'prod_consultoria' })
+    ).expect(200);
+    expect(withMetadata.body).toMatchObject({ status: 'ACCEPTED', invoiceIds: [expect.any(String)] });
+
+    const noProduct = await post(pix('pix_sem_produto')).expect(200);
+    expect(noProduct.body.status).toBe('IGNORED');
+
+    const products = await http().get('/v1/products').set('x-api-key', apiKey).expect(200);
+    const suporte = products.body.items.find(
+      (p: { externalId: string }) => p.externalId === 'prod_suporte'
+    );
+    const set = await http()
+      .put('/v1/tenants/me/integrations/abacatepay/default-product')
+      .set('x-api-key', apiKey)
+      .send({ productId: suporte.id })
+      .expect(200);
+    expect(set.body.defaultProduct).toEqual({ decided: true, productId: suporte.id });
+
+    const withDefault = await post(pix('pix_padrao')).expect(200);
+    expect(withDefault.body.status).toBe('ACCEPTED');
+    const invoice = await http()
+      .get(`/v1/invoices/${withDefault.body.invoiceIds[0]}`)
+      .set('x-api-key', apiKey)
+      .expect(200);
+    expect(invoice.body).toMatchObject({
+      amountCents: 3000,
+      items: [expect.objectContaining({ productId: suporte.id })],
+    });
+  });
+
   it('produto não cadastrado: venda fica retida e vira nota quando o produto é cadastrado', async () => {
     const held = await post(
       checkoutCompleted('bill_300', [{ id: 'prod_novo', quantity: 1 }], 100)

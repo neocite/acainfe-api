@@ -135,12 +135,16 @@ export class AbacatePayAdminClient implements PaymentGatewayAdmin {
           // A API não expõe a data do pagamento; updatedAt é o momento em que a cobrança mudou para paga.
           paidAt: new Date(String(c.updatedAt ?? c.createdAt)),
           amountCents: Number(c.paidAmount ?? c.amount ?? 0),
-          items: Array.isArray(c.items)
-            ? c.items.map((i: Json) => ({
-                productExternalId: String(i.id),
-                quantity: Number(i.quantity ?? 1),
-              }))
-            : [],
+          // Pix transparente não tem itens: o produto pode vir em metadata.productExternalId (igual ao webhook).
+          items:
+            Array.isArray(c.items) && c.items.length
+              ? c.items.map((i: Json) => ({
+                  productExternalId: String(i.id),
+                  quantity: Number(i.quantity ?? 1),
+                }))
+              : c.metadata?.productExternalId
+                ? [{ productExternalId: String(c.metadata.productExternalId), quantity: 1 }]
+                : [],
           customerId: c.customerId ? String(c.customerId) : undefined,
         });
       }
