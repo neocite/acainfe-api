@@ -8,6 +8,7 @@ import {
   BusinessTypeSchema,
   CompanyIssRateSchema,
   ConnectAbacatePaySchema,
+  RecreateWebhookSchema,
   NumberingSchema,
   UpdateTenantSchema,
 } from '../../schemas.js';
@@ -31,6 +32,8 @@ export function registerCompanyTools(server: McpServer, c: Container, tenant: Te
           availability: status.availability,
           readiness: status.readiness,
           certificate: status.certificate,
+          abacatepay: status.abacatepay,
+          emission: status.emission,
           pendingTaxReview: status.pendingTaxReview,
         };
       })
@@ -174,5 +177,17 @@ export function registerCompanyTools(server: McpServer, c: Container, tenant: Te
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     },
     () => run(async () => ({ sentTo: await c.fiscalSettings.sendToAccountant(tenant) }))
+  );
+
+  server.registerTool(
+    'recreate_abacatepay_webhook',
+    {
+      title: 'Recriar webhook do AbacatePay',
+      description:
+        'Cria um webhook novo no AbacatePay apontando para a URL atual do açaínfe (use quando get_company mostrar abacatepay.webhookUpToDate=false, ou se as vendas pararam de chegar). Usa a key já conectada (ou a informada, com WEBHOOK:CREATE). Depois, oriente o usuário a apagar o webhook antigo no painel do AbacatePay.',
+      inputSchema: RecreateWebhookSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    },
+    ({ apiKey }) => run(() => c.onboarding.recreateAbacatePayWebhook(tenant, apiKey))
   );
 }

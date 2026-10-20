@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { User } from '../../domain/account/user.js';
 import { assertCertificateUsable } from '../../domain/certificate/certificate.js';
 import {
@@ -71,6 +72,15 @@ export interface CompanyStatus {
   certificate: CompanyCertificateView;
   /** Por onde a nota é emitida (definido pela prefeitura; só leitura para o cliente). */
   emission: EmissionView;
+  abacatepay: AbacatePayIntegrationView;
+}
+
+export interface AbacatePayIntegrationView {
+  connected: boolean;
+  connectedAt?: Date;
+  webhookEndpoint?: string;
+  /** false = o webhook aponta para outra URL (recrie); null = não sabemos (conectado antes do registro). */
+  webhookUpToDate: boolean | null;
 }
 
 export interface EmissionView {
@@ -349,6 +359,7 @@ export class OnboardingService {
       readiness: tenantReadiness(tenant, Boolean(cert.present && !cert.expired), {
         municipalRegistrationRequired: system === 'GINFES',
       }),
+      abacatepay: this.abacatepayView(tenant),
       emission: {
         system,
         systemLabel: FISCAL_SYSTEM_LABEL[system],
@@ -369,6 +380,20 @@ export class OnboardingService {
             issuer: cert.metadata?.issuer,
           }
         : { present: false },
+    };
+  }
+
+  private abacatepayView(tenant: Tenant): AbacatePayIntegrationView {
+    const a = tenant.integrations.abacatepay;
+    if (!a) return { connected: false, webhookUpToDate: null };
+    const expected = this.deps.publicBaseUrl
+      ? `${this.deps.publicBaseUrl.replace(/\/$/, '')}/v1/webhooks/abacatepay/${tenant.id}`
+      : undefined;
+    return {
+      connected: true,
+      connectedAt: a.connectedAt,
+      webhookEndpoint: a.webhookEndpoint,
+      webhookUpToDate: a.webhookEndpoint && expected ? a.webhookEndpoint === expected : null,
     };
   }
 
@@ -409,11 +434,14 @@ export class OnboardingService {
     const connected = tenant.integrations.abacatepay;
     let webhookId: string;
     let webhookSecret: string;
+    let webhookEndpoint: string | undefined;
     if (connected?.webhookId) {
       // Reconexão (ex.: trocar a key por uma com mais permissões): NÃO cria outro webhook nem troca o
       // segredo — isso faria o webhook já cadastrado no AbacatePay ser rejeitado.
+      // Para apontar para outra URL, use recreateAbacatePayWebhook.
       webhookId = connected.webhookId;
       webhookSecret = connected.webhookSecret;
+      webhookEndpoint = connected.webhookEndpoint;
     } else {
       const enabled = await this.deps.tenantService.enableAbacatePay(
         tenant.id,
@@ -427,6 +455,7 @@ export class OnboardingService {
       });
       webhookId = webhook.id;
       webhookSecret = enabled.webhookSecret;
+      webhookEndpoint = enabled.webhookUrl.split('?')[0];
     }
 
     const current = (await this.deps.tenants.findById(tenant.id))!;
@@ -438,6 +467,7 @@ export class OnboardingService {
           webhookSecret,
           encryptedApiKey: this.deps.cipher.encrypt(Buffer.from(key, 'utf8')),
           webhookId,
+          webhookEndpoint,
           connectedAt: connected?.connectedAt ?? this.deps.clock.now(),
         },
       },
@@ -515,6 +545,74 @@ export class OnboardingService {
       skippedTestProducts,
       mergedDuplicates,
       pastSales,
+    };
+  }
+
+  /**
+   * Cria um webhook NOVO no AbacatePay apontando para a URL atual da API (ex.: depois de trocar o
+   * domínio — o AbacatePay não permite editar a URL de um webhook). Usa a key salva ou a informada,
+   * com um segredo novo: o webhook antigo passa a ser recusado (pode ser apagado no painel).
+   */
+  async recreateAbacatePayWebhook(
+    tenant: Tenant,
+    apiKey?: string
+  ): Promise<{
+    webhookId: string;
+    endpoint: string;
+    previous?: { webhookId?: string; endpoint?: string };
+  }> {
+    if (!this.deps.publicBaseUrl)
+      throw DomainError.validation('PUBLIC_BASE_URL não configurada no servidor');
+    const integration = tenant.integrations.abacatepay;
+    const informed = apiKey?.trim();
+    const key =
+      informed ||
+      (integration?.encryptedApiKey
+        ? this.deps.cipher.decrypt(integration.encryptedApiKey).toString('utf8')
+        : undefined);
+    if (!key) {
+      throw DomainError.validation(
+        'Informe a API key do AbacatePay (com a permissão WEBHOOK:CREATE) para criar o webhook'
+      );
+    }
+    const endpoint = `${this.deps.publicBaseUrl.replace(/\/$/, '')}/v1/webhooks/abacatepay/${tenant.id}`;
+    const webhookSecret = randomBytes(24).toString('base64url');
+    const webhook = await this.deps.gateway.createWebhook(key, {
+      name: 'açaínfe — emissão de NFS-e',
+      endpoint,
+      secret: webhookSecret,
+      events: ABACATEPAY_EVENTS,
+    });
+    const current = (await this.deps.tenants.findById(tenant.id))!;
+    const now = this.deps.clock.now();
+    await this.deps.tenants.update({
+      ...current,
+      integrations: {
+        ...current.integrations,
+        abacatepay: {
+          ...current.integrations.abacatepay,
+          webhookSecret,
+          webhookId: webhook.id,
+          webhookEndpoint: endpoint,
+          encryptedApiKey: informed
+            ? this.deps.cipher.encrypt(Buffer.from(informed, 'utf8'))
+            : current.integrations.abacatepay?.encryptedApiKey,
+          connectedAt: current.integrations.abacatepay?.connectedAt ?? now,
+        },
+      },
+      updatedAt: now,
+    });
+    this.deps.logger.info('Webhook do AbacatePay recriado', {
+      tenantId: tenant.id,
+      webhookId: webhook.id,
+      previousWebhookId: integration?.webhookId,
+    });
+    return {
+      webhookId: webhook.id,
+      endpoint,
+      previous: integration
+        ? { webhookId: integration.webhookId, endpoint: integration.webhookEndpoint }
+        : undefined,
     };
   }
 
