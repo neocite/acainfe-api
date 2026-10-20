@@ -366,6 +366,14 @@ export const ConnectAbacatePaySchema = z.object({
     .describe('Quantos meses para trás buscar (0 = só o mês atual; padrão 3; máximo 12)'),
 });
 
+export const RecreateWebhookSchema = z.object({
+  apiKey: z
+    .string()
+    .min(10)
+    .optional()
+    .describe('API key do AbacatePay (WEBHOOK:CREATE). Omita para usar a key já conectada'),
+});
+
 export const PastSalesScanSchema = z.object({
   monthsBack: z
     .number()

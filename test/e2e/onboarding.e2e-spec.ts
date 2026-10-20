@@ -460,6 +460,35 @@ describe('Onboarding self-service (app Replit → açaínfe → MCP)', () => {
     });
   });
 
+  it('recria o webhook do AbacatePay na URL atual; o segredo antigo para de valer', async () => {
+    const before = ctx.external.webhooks.length;
+    const oldSecret = String(ctx.external.webhooks[0].secret);
+    const res = await asUser(
+      http().post(`/v1/app/companies/${tenantId}/abacatepay/webhook`)
+    ).expect(201);
+    expect(res.body).toMatchObject({
+      endpoint: `https://api.acainfe.test/v1/webhooks/abacatepay/${tenantId}`,
+      previous: { webhookId: 'webh_1' },
+    });
+    expect(ctx.external.webhooks).toHaveLength(before + 1);
+    const newSecret = String(ctx.external.webhooks.at(-1)!.secret);
+    const payload = JSON.stringify({
+      event: 'checkout.completed',
+      data: { checkout: { id: 'x' } },
+    });
+    const sig = createHmac('sha256', ABACATEPAY_PUBLIC_HMAC_KEY).update(payload).digest('base64');
+    const send = (secret: string) =>
+      http()
+        .post(`/v1/webhooks/abacatepay/${tenantId}?webhookSecret=${secret}`)
+        .set('Content-Type', 'application/json')
+        .set('X-Webhook-Signature', sig)
+        .send(payload);
+    await send(oldSecret).expect(401);
+    await send(newSecret).expect(200);
+    const status = await asUser(http().get(`/v1/app/companies/${tenantId}`)).expect(200);
+    expect(status.body.abacatepay).toMatchObject({ connected: true, webhookUpToDate: true });
+  });
+
   it('ficha fiscal: mostra tudo o que define as notas e envia ao contador', async () => {
     const res = await asUser(http().get(`/v1/app/companies/${tenantId}/fiscal-settings`)).expect(
       200

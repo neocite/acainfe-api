@@ -9,6 +9,7 @@ import {
   ConnectAbacatePaySchema,
   CreateTenantSchema,
   NumberingSchema,
+  RecreateWebhookSchema,
   UpdateTenantSchema,
 } from '../../schemas.js';
 import { schema } from '../shared/openapi.js';
@@ -89,5 +90,20 @@ export class TenantsController {
     if (!this.c.env.PUBLIC_BASE_URL)
       throw DomainError.validation('PUBLIC_BASE_URL não configurada no servidor');
     return this.c.tenants.enableAbacatePay(tenant.id, this.c.env.PUBLIC_BASE_URL);
+  }
+
+  @Post('me/integrations/abacatepay/webhook')
+  @UseGuards(ApiKeyGuard)
+  @ApiSecurity('apiKey')
+  @ApiOperation({
+    summary:
+      'Cria um webhook novo no AbacatePay apontando para a URL atual da API (usa a key conectada ou a informada)',
+  })
+  @ApiBody({ schema: schema(RecreateWebhookSchema), required: false })
+  async recreateAbacatePayWebhook(@CurrentTenant() tenant: Tenant, @Body() body: unknown) {
+    return this.c.onboarding.recreateAbacatePayWebhook(
+      tenant,
+      parseInput(RecreateWebhookSchema, body).apiKey
+    );
   }
 }

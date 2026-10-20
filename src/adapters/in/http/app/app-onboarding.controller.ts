@@ -21,6 +21,7 @@ import {
   BusinessTypeSchema,
   CompanyIssRateSchema,
   ConnectAbacatePaySchema,
+  RecreateWebhookSchema,
 } from '../../schemas.js';
 import { AppHeaders, AppUserGuard, CurrentUser } from '../shared/app-auth.js';
 import type { AppRequest } from '../shared/app-auth.js';
@@ -160,6 +161,24 @@ export class AppOnboardingController {
     const { apiKey, ...options } = parseInput(ConnectAbacatePaySchema, body);
     return toConnectAbacatePayView(
       await this.c.onboarding.connectAbacatePay(tenant, apiKey, options)
+    );
+  }
+
+  @Post('companies/:tenantId/abacatepay/webhook')
+  @ApiOperation({
+    summary:
+      'Cria um webhook novo no AbacatePay apontando para a URL atual da API (o AbacatePay não deixa editar a URL). O antigo passa a ser recusado e pode ser apagado no painel',
+  })
+  @ApiBody({ schema: schema(RecreateWebhookSchema), required: false })
+  async recreateWebhook(
+    @CurrentUser() user: User,
+    @Param('tenantId') tenantId: string,
+    @Body() body: unknown
+  ) {
+    const tenant = await this.c.accounts.ownedTenant(user, tenantId);
+    return this.c.onboarding.recreateAbacatePayWebhook(
+      tenant,
+      parseInput(RecreateWebhookSchema, body).apiKey
     );
   }
 }

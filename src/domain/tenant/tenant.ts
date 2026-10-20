@@ -102,6 +102,8 @@ export interface Tenant {
       webhookSecret: string;
       encryptedApiKey?: string;
       webhookId?: string;
+      /** URL do webhook cadastrado no AbacatePay (sem o segredo): mostra se ficou desatualizada. */
+      webhookEndpoint?: string;
       connectedAt?: Date;
     };
   };
