@@ -24,7 +24,7 @@ Se nenhum existir, o pagamento não gera nota.
 | Campo | O que é |
 |---|---|
 | `decided` | `true` se a pergunta já foi respondida |
-| `productId` | o produto escolhido, quando houver |
+| `productId` | o produto escolhido, ou `null` para "Nenhum" (sempre presente) |
 | `suggestedProductId` | aparece quando só existe um produto; deixe-o pré-selecionado |
 | `options` | lista de `{ id, name }` para escolher |
 
