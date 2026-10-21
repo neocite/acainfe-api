@@ -13,6 +13,10 @@ import {
   ErrorFilter,
   HTTP_CONTROLLERS,
 } from './adapters/in/http/index.js';
+import {
+  PUBLIC_API_DESCRIPTION,
+  publicApiDocument,
+} from './adapters/in/http/shared/public-docs.js';
 import type { Container } from './config/container.js';
 
 @Module({})
@@ -64,14 +68,15 @@ export async function createApp(container: Container): Promise<NestFastifyApplic
   );
   app.enableShutdownHooks();
 
-  const doc = new DocumentBuilder()
+  const builder = new DocumentBuilder()
     .setTitle('açaínfe API')
-    .setDescription(
-      'Emissão de NFS-e com tributação por produto. Também disponível via MCP em /mcp.'
-    )
+    .setDescription(PUBLIC_API_DESCRIPTION)
     .setVersion(container.env.APP_VERSION)
-    .addApiKey({ type: 'apiKey', in: 'header', name: 'x-api-key' }, 'apiKey')
-    .build();
-  SwaggerModule.setup('docs', app, () => SwaggerModule.createDocument(app, doc));
+    .addApiKey({ type: 'apiKey', in: 'header', name: 'x-api-key' }, 'apiKey');
+  if (container.env.PUBLIC_BASE_URL) builder.addServer(container.env.PUBLIC_BASE_URL);
+  // Documentação pública: sem as rotas internas (admin e backend do app web).
+  SwaggerModule.setup('docs', app, () =>
+    publicApiDocument(SwaggerModule.createDocument(app, builder.build()))
+  );
   return app;
 }
