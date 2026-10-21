@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { generateTestPfx } from '../../../../test/support/test-certificate.js';
 import { AesGcmEnvelopeCipher } from './aes-gcm-cipher.js';
 import { ForgeCertificateParser } from './forge-certificate-parser.js';
-import { openPfx } from './pfx.js';
+import { openPfx, tlsClientCredentials } from './pfx.js';
 
 const key = () => randomBytes(32).toString('base64');
 
@@ -62,5 +62,18 @@ describe('certificado A1', () => {
 
   it('rejeita arquivo inválido', () => {
     expect(() => openPfx(Buffer.from('não é pfx'), 'x')).toThrow(/Não foi possível abrir/);
+  });
+});
+
+describe('credenciais do TLS mútuo', () => {
+  it('converte o .pfx em PEM aceito pelo TLS do Node (A1 com cifra antiga)', async () => {
+    const { createSecureContext } = await import('node:tls');
+    const { pfx, password } = generateTestPfx();
+    const credentials = tlsClientCredentials({ pfx, password });
+    expect(credentials.key).toMatch(/BEGIN RSA PRIVATE KEY|BEGIN PRIVATE KEY/);
+    expect(credentials.cert).toMatch(/BEGIN CERTIFICATE/);
+    expect(() => createSecureContext(credentials)).not.toThrow();
+    // Mesmo .pfx: reaproveita a conversão.
+    expect(tlsClientCredentials({ pfx, password })).toBe(credentials);
   });
 });
