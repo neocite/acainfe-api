@@ -64,6 +64,37 @@ describe('Cobrança interna (R$ por nota emitida)', () => {
     });
   });
 
+  it('cidades atendidas para a landing (só as liberadas, sem autenticação)', async () => {
+    for (const [cityCode, body] of [
+      ['3550308', { simples: true, others: false, cityName: 'São Paulo', uf: 'SP' }],
+      ['3548708', { simples: true, others: false, cityName: 'São Bernardo do Campo', uf: 'SP' }],
+      ['3304557', { simples: false, others: false, cityName: 'Rio de Janeiro', uf: 'RJ' }],
+    ] as const) {
+      await http()
+        .put(`/v1/admin/coverage/${cityCode}`)
+        .set('x-admin-key', ADMIN_KEY)
+        .send(body)
+        .expect(200);
+    }
+    const res = await http().get('/v1/public/coverage').expect(200);
+    expect(res.body).toEqual({
+      cities: [
+        {
+          cityCode: '3548708',
+          cityName: 'São Bernardo do Campo',
+          uf: 'SP',
+          regimes: ['MEI', 'SIMPLES_NACIONAL'],
+        },
+        {
+          cityCode: '3550308',
+          cityName: 'São Paulo',
+          uf: 'SP',
+          regimes: ['MEI', 'SIMPLES_NACIONAL'],
+        },
+      ],
+    });
+  });
+
   it('cada NFS-e emitida gera uma cobrança de R$ 0,80', async () => {
     await sell('c-1');
     await sell('c-2');

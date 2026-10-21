@@ -18,4 +18,26 @@ export class PublicPricingController {
       graceDays: this.c.env.BILLING_GRACE_DAYS,
     };
   }
+
+  @Get('coverage')
+  @ApiOperation({
+    summary:
+      'Cidades atendidas (a landing e a lista de espera leem daqui): regimes liberados em cada uma',
+  })
+  async coverage() {
+    const cities = (await this.c.onboarding.listCoverage())
+      .filter((c) => c.simples || c.others)
+      .map((c) => ({
+        cityCode: c.cityCode,
+        cityName: c.cityName,
+        uf: c.uf,
+        // "simples" cobre MEI e Simples Nacional; "others", Lucro Presumido/Real.
+        regimes: [
+          ...(c.simples ? ['MEI', 'SIMPLES_NACIONAL'] : []),
+          ...(c.others ? ['LUCRO_PRESUMIDO', 'LUCRO_REAL'] : []),
+        ],
+      }))
+      .sort((a, b) => (a.cityName ?? '').localeCompare(b.cityName ?? ''));
+    return { cities };
+  }
 }
