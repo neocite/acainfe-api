@@ -58,7 +58,7 @@ export interface Tenant {
   businessType?: BusinessType;
   /**
    * Força o sistema de emissão (ex.: NACIONAL quando a prefeitura liberar o Emissor Nacional).
-   * Ausente = regra do município (GINFES_CITIES).
+   * Ausente = regra do município (GINFES_CITIES / PAULISTANA_CITIES).
    */
   fiscalProvider?: FiscalSystem;
   /**
@@ -553,20 +553,26 @@ export function companyFiscalProfile(
     definition,
     taxProfile: createTaxProfile({
       ...definition.taxProfile,
+      localServiceCode: definition.localServiceCodes?.[tenant.cityCode],
       issRateBps: companyIssRateBps(tenant),
     }),
   };
 }
 
-export type FiscalSystem = 'NACIONAL' | 'GINFES';
+export type FiscalSystem = 'NACIONAL' | 'GINFES' | 'PAULISTANA';
 
 /**
  * Por onde a empresa emite: o escolhido na empresa ou a regra do município. MEI usa sempre o
  * Emissor Nacional (obrigatório para MEI); ME/EPP de municípios ainda fora do Emissor Nacional
- * usam o sistema da prefeitura.
+ * usam o sistema da prefeitura (Ginfes em São Bernardo, NFS-e Paulistana na capital).
  */
-export function fiscalSystemFor(tenant: Tenant, ginfesCities: string[]): FiscalSystem {
+export function fiscalSystemFor(
+  tenant: Tenant,
+  ginfesCities: string[],
+  paulistanaCities: string[] = []
+): FiscalSystem {
   if (tenant.fiscalProvider) return tenant.fiscalProvider;
   if (tenant.taxRegime === 'MEI') return 'NACIONAL';
+  if (paulistanaCities.includes(tenant.cityCode)) return 'PAULISTANA';
   return ginfesCities.includes(tenant.cityCode) ? 'GINFES' : 'NACIONAL';
 }

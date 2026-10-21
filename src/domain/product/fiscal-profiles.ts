@@ -11,6 +11,11 @@ export interface FiscalProfileDefinition {
   /** Tributação aplicada aos produtos (sem alíquota de ISS: ela depende do município/regime da empresa). */
   taxProfile: Partial<TaxProfile> & { nationalServiceCode: string };
   /**
+   * Código de tributação municipal por município (IBGE): só onde a emissão é pelo sistema da
+   * prefeitura (Ginfes em São Bernardo, NFS-e Paulistana em São Paulo). No nacional não é usado.
+   */
+  localServiceCodes?: Record<string, string>;
+  /**
    * Validado por contador? Só perfis validados confirmam a tributação automaticamente;
    * os demais entram como SUGESTÃO e o usuário confirma.
    */
@@ -25,11 +30,16 @@ export const FISCAL_PROFILES: Record<BusinessType, FiscalProfileDefinition> = {
     examples: 'Cursos, treinamentos, mentorias',
     taxProfile: {
       nationalServiceCode: '080201',
-      localServiceCode: '8.02/103911/1551',
       nbsCode: '122051900',
       issTaxation: 'TAXABLE',
       issRetention: 'NONE',
       ibsCbs: { cst: '000', cClassTrib: '000001', operationIndicator: '100301' },
+    },
+    localServiceCodes: {
+      '3548708': '8.02/103911/1551',
+      // São Paulo: 05762 "outros serviços de instrução, treinamento… de qualquer natureza" (8.02),
+      // Anexo 1 da IN SF/SUREM 08/2011. Confirmar com o contador da empresa piloto.
+      '3550308': '05762',
     },
     validated: true,
     validationNote:
@@ -49,6 +59,12 @@ export const FISCAL_PROFILES: Record<BusinessType, FiscalProfileDefinition> = {
       issTaxation: 'TAXABLE',
       issRetention: 'NONE',
       ibsCbs: { cst: '000', cClassTrib: '000001', operationIndicator: '100501' },
+    },
+    localServiceCodes: {
+      // Validado pela contabilidade para a nota de uso do açaínfe em 20/10/2026.
+      '3548708': '1.05/102313/1234',
+      // São Paulo: 02800 licenciamento ou cessão de direito de uso de programas de computação (1.05).
+      '3550308': '02800',
     },
     validated: false,
     validationNote:

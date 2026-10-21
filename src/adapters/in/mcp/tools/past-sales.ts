@@ -34,7 +34,9 @@ export function registerPastSalesTools(server: McpServer, c: Container, tenant: 
         'Prévia por mês (sem filtros) ou a lista de vendas de um mês/status para o usuário revisar e marcar as que já têm nota em outro sistema.',
       inputSchema: z.object({
         period: z.string().optional(),
-        status: z.array(z.enum(['AVAILABLE', 'ALREADY_ISSUED', 'IMPORTED', 'REFUNDED', 'IGNORED'])).optional(),
+        status: z
+          .array(z.enum(['AVAILABLE', 'ALREADY_ISSUED', 'IMPORTED', 'REFUNDED', 'IGNORED']))
+          .optional(),
       }),
       annotations: readOnly,
     },

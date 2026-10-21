@@ -112,6 +112,7 @@ export interface EmissionView {
 export const FISCAL_SYSTEM_LABEL: Record<FiscalSystem, string> = {
   NACIONAL: 'Emissor Nacional da NFS-e (Receita Federal)',
   GINFES: 'Ginfes, sistema próprio da prefeitura',
+  PAULISTANA: 'NFS-e Paulistana, sistema próprio da prefeitura de São Paulo',
 };
 
 export interface CompanyCertificateView {
@@ -185,6 +186,7 @@ export class OnboardingService {
     }
     const now = this.deps.clock.now();
     assertCertificateUsable(meta, meta.cnpj, now);
+    await this.deps.certificates.assertTrusted(pfx, password, meta.cnpj);
 
     const company = await this.deps.registry.lookup(meta.cnpj);
     if (!company)
@@ -196,13 +198,16 @@ export class OnboardingService {
     }
 
     let tenant = await this.deps.tenants.findByCnpj(meta.cnpj);
-    if (tenant) {
-      // Quem tem o certificado A1 controla o CNPJ: pode administrar a empresa já cadastrada.
-      if (!tenant.ownerUserIds.includes(user.id)) {
-        tenant = { ...tenant, ownerUserIds: [...tenant.ownerUserIds, user.id], updatedAt: now };
-        await this.deps.tenants.update(tenant);
-      }
-    } else {
+    if (tenant && !tenant.ownerUserIds.includes(user.id)) {
+      // Empresa já cadastrada por outra pessoa: o envio de certificado não dá acesso nem troca o
+      // certificado dela (o acesso de um novo usuário depende de quem já administra). Avisa os donos.
+      await this.notifyAccessAttempt(tenant, user);
+      throw new DomainError(
+        'CONFLICT',
+        'Esta empresa já está cadastrada no açaínfe por outra pessoa. Peça a quem administra a empresa para liberar o seu acesso.'
+      );
+    }
+    if (!tenant) {
       const regime = regimeFrom(company);
       const availability = evaluateAvailability(
         await this.deps.coverage.get(company.cityCode),
@@ -237,6 +242,29 @@ export class OnboardingService {
     await this.deps.accounts.linkTenant(user, tenant.id);
     await this.deps.certificates.upload(tenant, pfx, password);
     return { ...(await this.status(tenant)), company };
+  }
+
+  /** Aviso aos donos: alguém tentou cadastrar a empresa com um certificado do mesmo CNPJ. */
+  private async notifyAccessAttempt(tenant: Tenant, user: User): Promise<void> {
+    const text = `Alguém (${user.email}) tentou cadastrar ${tenant.legalName} no açaínfe enviando um certificado do CNPJ da empresa. Nada foi alterado e essa pessoa não recebeu acesso. Se não foi alguém da sua equipe, confira quem tem o certificado A1 da empresa.`;
+    await this.deps.email
+      .send({
+        to: tenant.email,
+        subject: 'Tentativa de acesso à sua empresa no açaínfe',
+        text,
+        html: `<p>${text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`,
+        attachments: [],
+      })
+      .catch((error: unknown) =>
+        this.deps.logger.warn('Falha ao avisar tentativa de acesso', {
+          tenantId: tenant.id,
+          error: String(error),
+        })
+      );
+    this.deps.logger.warn('Tentativa de cadastrar empresa já existente', {
+      tenantId: tenant.id,
+      userId: user.id,
+    });
   }
 
   /**
@@ -375,7 +403,7 @@ export class OnboardingService {
       tenant: toTenantView(tenant),
       availability,
       readiness: tenantReadiness(tenant, Boolean(cert.present && !cert.expired), {
-        municipalRegistrationRequired: system === 'GINFES',
+        municipalRegistrationRequired: system === 'GINFES' || system === 'PAULISTANA',
       }),
       abacatepay: this.abacatepayView(tenant),
       emission: {

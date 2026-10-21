@@ -33,6 +33,7 @@ const material = { pfx: cert.pfx, password: cert.password };
 const tenant = makeTenant({ cityCode: '3548708', municipalRegistration: '123456' });
 const taxProfile = createTaxProfile({
   ...FISCAL_PROFILES.INFOPRODUCER.taxProfile,
+  localServiceCode: FISCAL_PROFILES.INFOPRODUCER.localServiceCodes!['3548708'],
   issRateBps: 201,
 });
 const invoice = makeInvoice({

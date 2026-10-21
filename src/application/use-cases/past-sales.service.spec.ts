@@ -253,9 +253,9 @@ describe('Vendas passadas (antes do açaínfe)', () => {
   it('pagamentos de teste podem ser ignorados: não emitem, sobrevivem à nova varredura e voltam se desfeito', async () => {
     await h.onboarding.connectAbacatePay(tenant, h.gateway.validKey);
     await reload();
-    const [pix] = await h.pastSales.list(tenant, { period: '2026-10', status: ['AVAILABLE'] }).then(
-      (items) => items.filter((i) => i.externalId === 'pix_out3')
-    );
+    const [pix] = await h.pastSales
+      .list(tenant, { period: '2026-10', status: ['AVAILABLE'] })
+      .then((items) => items.filter((i) => i.externalId === 'pix_out3'));
     expect(
       await h.pastSales.setIgnored(tenant, { ids: [pix.id] }, true, 'pagamento de teste')
     ).toEqual({ updated: 1 });
@@ -277,9 +277,9 @@ describe('Vendas passadas (antes do açaínfe)', () => {
     expect(r).toMatchObject({ issued: 0, held: 0 });
 
     expect((await h.pastSales.setIgnored(tenant, { ids: [pix.id] }, false)).updated).toBe(1);
-    const [back] = await h.pastSales.list(tenant, { status: ['AVAILABLE'], period: '2026-10' }).then(
-      (items) => items.filter((i) => i.externalId === 'pix_out3')
-    );
+    const [back] = await h.pastSales
+      .list(tenant, { status: ['AVAILABLE'], period: '2026-10' })
+      .then((items) => items.filter((i) => i.externalId === 'pix_out3'));
     expect(back.ignoredReason).toBeUndefined();
   });
 

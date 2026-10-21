@@ -16,7 +16,7 @@ export class UazapiWhatsappSender implements WhatsappSender {
     await this.post('/send/media', {
       number: message.phone,
       type: 'document',
-      file: message.fileUrl ?? message.file.toString('base64'),
+      file: message.fileUrl ?? `data:application/pdf;base64,${message.file.toString('base64')}`,
       docName: message.fileName,
       mimetype: 'application/pdf',
       text: message.caption,

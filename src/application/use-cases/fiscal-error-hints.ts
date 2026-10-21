@@ -30,6 +30,22 @@ const HINTS: { match: RegExp; hint: string }[] = [
     hint: 'Faltam dados exigidos pelo sistema da prefeitura (Ginfes). Complete o que a mensagem pede (ex.: CCM com update_company) e use retry_invoice.',
   },
   {
+    match: /PAULISTANA_DADOS/,
+    hint: 'Faltam dados exigidos pela NFS-e da prefeitura de São Paulo. Complete o que a mensagem pede (ex.: CCM com update_company, ou o código de serviço de 5 dígitos do produto, como 05762) e use retry_invoice.',
+  },
+  {
+    match: /\b1206\b|\b1057\b|\b1056\b/,
+    hint: 'A prefeitura de São Paulo recusou a assinatura (do RPS ou da mensagem). É um problema do açaínfe, não do usuário: avise o suporte com o código do erro; não adianta reprocessar.',
+  },
+  {
+    match: /\b306\b|\b310\b|\b361\b|\b367\b|c[óo]digo de servi[çc]o/i,
+    hint: 'Código de serviço de São Paulo inválido ou não permitido para a empresa. Confira com o contador o código de 5 dígitos (ex.: 05762 cursos, 02800 licenciamento de software), corrija o localServiceCode do produto e use retry_invoice.',
+  },
+  {
+    match: /\b1647\b|\b641\b|\b632\b|ambiente nacional/i,
+    hint: 'A prefeitura de São Paulo exige outro leiaute ou o Emissor Nacional para esta data/regime (migração do Simples em 01/11/2026). Avise o suporte: a empresa deve passar a emitir pelo Emissor Nacional (fiscalProvider NACIONAL).',
+  },
+  {
     match: /\bE35\b|c[óo]digo de tributa[çc][ãa]o inexistente/i,
     hint: 'O código de tributação municipal do produto não existe na prefeitura. Confira o localServiceCode (formato de São Bernardo: 8.02/103911/1551) numa nota antiga, corrija o produto e use retry_invoice.',
   },

@@ -4,10 +4,15 @@ import {
   SBC_VERIFICATION_URL,
 } from '../adapters/out/fiscal/ginfes/ginfes-fiscal-provider.js';
 import {
+  HttpsPaulistanaTransport,
+  PaulistanaTransport,
+} from '../adapters/out/fiscal/paulistana/paulistana-soap.js';
+import { PaulistanaFiscalProvider } from '../adapters/out/fiscal/paulistana/paulistana-fiscal-provider.js';
+import {
   GinfesTransport,
   HttpsGinfesTransport,
 } from '../adapters/out/fiscal/ginfes/ginfes-soap.js';
-import { fiscalSystemFor } from '../domain/tenant/tenant.js';
+import { fiscalSystemFor, Tenant } from '../domain/tenant/tenant.js';
 import { Agenda } from 'agenda';
 import { Db, MongoClient } from 'mongodb';
 import {
@@ -53,6 +58,7 @@ import { registerWorkers } from '../adapters/in/jobs/agenda-workers.js';
 import { StaticServiceCodeCatalog } from '../adapters/out/catalog/static-service-code-catalog.js';
 import { AesGcmEnvelopeCipher } from '../adapters/out/crypto/aes-gcm-cipher.js';
 import { ForgeCertificateParser } from '../adapters/out/crypto/forge-certificate-parser.js';
+import { IcpBrasilCertificateTrust, TRUST_ANY } from '../adapters/out/crypto/icp-brasil-trust.js';
 import {
   InMemoryEmailSender,
   ResendEmailSender,
@@ -101,6 +107,7 @@ export interface ContainerOverrides {
   scheduler?: JobScheduler;
   fiscalResolver?: FiscalProviderResolver;
   ginfesTransport?: GinfesTransport;
+  paulistanaTransport?: PaulistanaTransport;
   fetcher?: RemoteFileFetcher;
   registry?: CompanyRegistry;
   gateway?: PaymentGatewayAdmin;
@@ -222,19 +229,35 @@ export async function buildContainer(
     },
     clock
   );
-  const ginfesCities = env.GINFES_CITIES.split(',')
-    .map((c) => c.trim())
-    .filter(Boolean);
+  // NFS-e Paulistana: ME/EPP da capital de SP até a migração para o Emissor Nacional.
+  const paulistana = new PaulistanaFiscalProvider(
+    overrides.paulistanaTransport ?? new HttpsPaulistanaTransport(),
+    { url: env.PAULISTANA_URL, pilot: env.PAULISTANA_PILOT }
+  );
+  const cityList = (value: string) =>
+    value
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean);
+  const ginfesCities = cityList(env.GINFES_CITIES);
+  const paulistanaCities = cityList(env.PAULISTANA_CITIES);
+  const systemOf = (tenant: Tenant) => fiscalSystemFor(tenant, ginfesCities, paulistanaCities);
+  const providersBySystem = { NACIONAL: nacional, GINFES: ginfes, PAULISTANA: paulistana };
   const fiscalResolver: FiscalProviderResolver = overrides.fiscalResolver ?? {
-    resolve: (tenant) => (fiscalSystemFor(tenant, ginfesCities) === 'GINFES' ? ginfes : nacional),
+    resolve: (tenant) => providersBySystem[systemOf(tenant)],
   };
   const municipalParams: MunicipalParamsGateway = nacional;
 
   const links = new HmacDocumentLinks(env.PUBLIC_BASE_URL, env.LINK_SIGNING_SECRET);
   const uploadLinks = new HmacUploadLinks(env.PUBLIC_BASE_URL, env.LINK_SIGNING_SECRET);
+  const trust =
+    env.CERTIFICATE_TRUST === 'any'
+      ? TRUST_ANY
+      : new IcpBrasilCertificateTrust({ allowUntrustedCnpjs: env.TEST_COMPANY_CNPJS });
   const certificates = new CertificateService({
     certificates: repos.certificates,
     tenants: repos.tenants,
+    trust,
     parser: new ForgeCertificateParser(),
     cipher: new AesGcmEnvelopeCipher(env.MASTER_KEY_ID, parseMasterKeys(env.MASTER_KEYS)),
     clock,
@@ -379,7 +402,7 @@ export async function buildContainer(
     publicBaseUrl: env.PUBLIC_BASE_URL,
     pastSales,
     productService: products,
-    fiscalSystemOf: (tenant) => fiscalSystemFor(tenant, ginfesCities),
+    fiscalSystemOf: systemOf,
     approvalRequired: (tenant) => Boolean(fiscalResolver.resolve(tenant).requiresApproval),
   });
   const fiscalSettings = new FiscalSettingsService({

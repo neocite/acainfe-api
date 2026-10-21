@@ -7,6 +7,8 @@ export interface PfxContents {
   /** Certificado em base64 DER, sem cabeçalhos nem quebras — formato do X509Certificate no XMLDSig. */
   certificateBase64: string;
   certificate: forge.pki.Certificate;
+  /** Demais certificados do arquivo (cadeia da autoridade certificadora, quando vem junto). */
+  chain: forge.pki.Certificate[];
 }
 
 /** Abre um PKCS#12 (.pfx/.p12) e extrai a chave privada e o certificado do titular. */
@@ -47,6 +49,9 @@ export function openPfx(pfx: Buffer, password: string): PfxContents {
     certificatePem: forge.pki.certificateToPem(leaf),
     certificateBase64: forge.util.encode64(der),
     certificate: leaf,
+    chain: certBags
+      .map((b) => b.cert)
+      .filter((c): c is forge.pki.Certificate => Boolean(c) && c !== leaf),
   };
 }
 

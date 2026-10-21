@@ -294,9 +294,9 @@ describe('Onboarding self-service (app Replit → açaínfe → MCP)', () => {
       `Bearer ${mcpKey}`
     );
     // Guia sem gerar chave (ex.: guardou a chave mas esqueceu como conectar).
-    const guide = await asUser(
-      http().get(`/v1/app/companies/${tenantId}/mcp-connection`)
-    ).expect(200);
+    const guide = await asUser(http().get(`/v1/app/companies/${tenantId}/mcp-connection`)).expect(
+      200
+    );
     expect(guide.body).toMatchObject({
       mcpUrl: 'https://api.acainfe.test/mcp',
       keyPlaceholder: '<SUA_CHAVE>',

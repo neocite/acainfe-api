@@ -118,6 +118,29 @@ São Bernardo do Campo ainda não liberou o Emissor Nacional para ME/EPP (rejei�
 - **Modo piloto** (`GINFES_PILOT=true`): cada nota fica `PENDING` com `AWAITING_APPROVAL` até o usuário conferir `preview_invoice` e chamar `approve_invoice`. `list_municipal_invoices` consulta as notas já emitidas na prefeitura, inclusive pelo eNotas.
 - **Testes:** os XMLs são validados contra dois conjuntos de XSD (sped-nfse-ginfes e ACBr, em `test/fixtures/xsd/ginfes`), as assinaturas são verificadas, e o e2e usa um Ginfes falso que confere a assinatura.
 
+### NFS-e Paulistana (São Paulo capital) e modo piloto
+
+As ME/EPP da capital emitem pelo web service da prefeitura (NFS-e Paulistana) até a migração do Simples para o Emissor Nacional, obrigatória para fatos geradores a partir de **01/11/2026** (Resolução CGSN 191/2026). MEI usa sempre o nacional.
+
+- **Leiaute:** 1 (`VersaoSchema=1`), o exigido para o Simples (erro 641).
+- **Transporte:** SOAP 1.1 em `PAULISTANA_URL`, com TLS mútuo (A1 da empresa, TLS 1.2+). O CNPJ do certificado tem de ser o do prestador.
+- **Assinaturas:**
+  - **RPS:** RSA-SHA1 da string de 86 posições do manual (CCM, série, número, data, tributação, valores, código e tomador).
+  - **Mensagem:** XMLDSig RSA-SHA1/C14N na raiz (`URI=""`).
+- **Fluxo síncrono:** o `EnvioRPS` devolve o número e o código de verificação na hora; em seguida o açaínfe busca a nota completa (`ConsultaNFe`) para o PDF.
+  - **Idempotência:** depois de um timeout, a fila consulta pela chave do RPS (CCM + série + número) antes de reenviar.
+  - **Data do RPS:** é a competência da venda (fato gerador). Por isso, vendas até 31/10 ainda podem ser emitidas por aqui depois de 01/11 (emissão retroativa).
+- **Dados exigidos:**
+  - CCM com até 8 dígitos;
+  - código de serviço de SP no produto (`localServiceCode` de 5 dígitos);
+  - endereço do tomador quando ele for empresa (CNPJ).
+- **Perfis fiscais em SP:** infoprodutor usa `05762` (8.02); microSaaS usa `02800` (1.05). Os códigos municipais dos perfis são escolhidos pela cidade da empresa.
+- **Simples (DAS):** `TributacaoRPS=T` e sem ISS destacado; a alíquota vai só como informação (diferença gera apenas alerta).
+- **Liberação de SP:** cadastre a cobertura uma vez: `PUT /v1/admin/coverage/3550308 {"simples": true, "others": false, "cityName": "São Paulo", "uf": "SP"}`. Isso ativa e avisa quem estava na lista de espera.
+- **Virada para o nacional:** `PAULISTANA_CITIES=none`, ou `fiscalProvider: NACIONAL` por empresa.
+- **Consultas e cruzamento:** `get_municipal_invoice` e `list_municipal_invoices` usam `ConsultaNFe` e `ConsultaNFeEmitidas` (janelas de 31 dias, páginas de 50). O cruzamento de vendas antigas funciona igual ao do Ginfes.
+- **Cancelamento:** `CancelamentoNFe`, que só cancela notas geradas via web service (erro 1306).
+
 ### Homologação × produção
 
 Vendas e notas guardam o `environment` da empresa no momento da venda.

@@ -224,10 +224,10 @@ export const CreateTenantSchema = z.object({
   businessType: BusinessTypeSchema.optional(),
   issRateBps: CompanyIssRateSchema.optional(),
   fiscalProvider: z
-    .enum(['NACIONAL', 'GINFES'])
+    .enum(['NACIONAL', 'GINFES', 'PAULISTANA'])
     .optional()
     .describe(
-      'Força o sistema de emissão: NACIONAL (Emissor Nacional) ou GINFES (sistema da prefeitura de São Bernardo do Campo). Omita para seguir a regra do município'
+      'Força o sistema de emissão: NACIONAL (Emissor Nacional), GINFES (prefeitura de São Bernardo do Campo) ou PAULISTANA (NFS-e da prefeitura de São Paulo). Omita para seguir a regra do município'
     ),
 });
 
@@ -258,7 +258,7 @@ export const AdminTenantSchema = z.object({
     .optional()
     .describe('HOMOLOGATION só para testes internos: notas sem valor fiscal'),
   fiscalProvider: z
-    .enum(['NACIONAL', 'GINFES'])
+    .enum(['NACIONAL', 'GINFES', 'PAULISTANA'])
     .nullable()
     .optional()
     .describe('Força o sistema de emissão; null volta para a regra do município'),
@@ -475,5 +475,7 @@ export const PastSalesListSchema = z.object({
         ? undefined
         : (Array.isArray(v) ? v : v.split(',')).map((x) => x.trim().toUpperCase())
     )
-    .pipe(z.array(z.enum(['AVAILABLE', 'ALREADY_ISSUED', 'IMPORTED', 'REFUNDED', 'IGNORED'])).optional()),
+    .pipe(
+      z.array(z.enum(['AVAILABLE', 'ALREADY_ISSUED', 'IMPORTED', 'REFUNDED', 'IGNORED'])).optional()
+    ),
 });
