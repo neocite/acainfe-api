@@ -64,6 +64,18 @@ describe('Cobrança interna (R$ por nota emitida)', () => {
     });
   });
 
+  it('documentação pública da API: sem rotas internas, com autenticação e exemplo', async () => {
+    const res = await http().get('/docs-json').expect(200);
+    const paths = Object.keys(res.body.paths);
+    expect(paths).toEqual(
+      expect.arrayContaining(['/v1/sales', '/v1/invoices/{id}', '/v1/public/coverage'])
+    );
+    expect(paths.filter((p) => p.startsWith('/v1/admin') || p.startsWith('/v1/app'))).toEqual([]);
+    expect(res.body.info.description).toMatch(/x-api-key/);
+    expect(res.body.info.description).toMatch(/curl -X POST/);
+    expect(res.body.servers).toEqual([{ url: 'https://api.acainfe.test' }]);
+  });
+
   it('cidades atendidas para a landing (só as liberadas, sem autenticação)', async () => {
     for (const [cityCode, body] of [
       ['3550308', { simples: true, others: false, cityName: 'São Paulo', uf: 'SP' }],
