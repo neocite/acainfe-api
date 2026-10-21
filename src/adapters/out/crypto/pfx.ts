@@ -72,3 +72,28 @@ export function extractCnpj(cert: forge.pki.Certificate): string | undefined {
   const cn = cert.subject.getField('CN')?.value as string | undefined;
   return cn?.match(/:(\d{14})\b/)?.[1];
 }
+
+const tlsCache = new WeakMap<Buffer, { key: string; cert: string }>();
+
+/**
+ * Chave e certificado (com a cadeia) em PEM para o TLS mútuo. O OpenSSL 3 do Node recusa .pfx
+ * cifrados com algoritmos antigos (RC2/3DES, comuns em A1 da Certisign/RFB: "Unsupported PKCS12
+ * PFX data"); o node-forge abre esses arquivos, então o TLS recebe PEM em vez do .pfx cru.
+ */
+export function tlsClientCredentials(material: { pfx: Buffer; password: string }): {
+  key: string;
+  cert: string;
+} {
+  const cached = tlsCache.get(material.pfx);
+  if (cached) return cached;
+  const contents = openPfx(material.pfx, material.password);
+  const credentials = {
+    key: contents.privateKeyPem,
+    cert: [
+      contents.certificatePem,
+      ...contents.chain.map((c) => forge.pki.certificateToPem(c)),
+    ].join(''),
+  };
+  tlsCache.set(material.pfx, credentials);
+  return credentials;
+}

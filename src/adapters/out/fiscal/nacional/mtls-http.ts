@@ -1,6 +1,7 @@
 import http from 'node:http';
 import https from 'node:https';
 import { CertificateMaterial } from '../../../../application/ports/fiscal-provider.js';
+import { tlsClientCredentials } from '../../crypto/pfx.js';
 
 export interface HttpResponse {
   status: number;
@@ -53,9 +54,7 @@ export class NodeMtlsHttpClient implements MtlsHttpClient {
           : {}),
       },
       timeout: this.timeoutMs,
-      ...(isHttps
-        ? { pfx: certificate.pfx, passphrase: certificate.password, minVersion: 'TLSv1.2' as const }
-        : {}),
+      ...(isHttps ? { ...tlsClientCredentials(certificate), minVersion: 'TLSv1.2' as const } : {}),
     };
     return new Promise((resolve, reject) => {
       const req = (isHttps ? https : http).request(target, options, (res) => {

@@ -4,6 +4,7 @@ import {
   CertificateMaterial,
   FiscalProviderUnavailableError,
 } from '../../../../application/ports/fiscal-provider.js';
+import { tlsClientCredentials } from '../../crypto/pfx.js';
 import { escapeXml } from '../nacional/xml.js';
 
 /** Métodos do lotenfe.asmx usados pelo açaínfe. */
@@ -84,8 +85,7 @@ export class HttpsPaulistanaTransport implements PaulistanaTransport {
       timeout: this.timeoutMs,
       ...(isHttps
         ? {
-            pfx: certificate.pfx,
-            passphrase: certificate.password,
+            ...tlsClientCredentials(certificate),
             minVersion: 'TLSv1.2' as const,
           }
         : {}),

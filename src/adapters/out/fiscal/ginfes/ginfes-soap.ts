@@ -4,6 +4,7 @@ import {
   CertificateMaterial,
   FiscalProviderUnavailableError,
 } from '../../../../application/ports/fiscal-provider.js';
+import { tlsClientCredentials } from '../../crypto/pfx.js';
 import { escapeXml } from '../nacional/xml.js';
 
 export interface GinfesTransport {
@@ -69,8 +70,7 @@ export class HttpsGinfesTransport implements GinfesTransport {
       timeout: this.timeoutMs,
       ...(isHttps
         ? {
-            pfx: certificate.pfx,
-            passphrase: certificate.password,
+            ...tlsClientCredentials(certificate),
             minVersion: 'TLSv1.2' as const,
             maxVersion: 'TLSv1.2' as const,
           }
