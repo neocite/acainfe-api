@@ -3,6 +3,7 @@ import { Cents } from '../shared/money.js';
 import { TaxProfile } from '../product/tax-profile.js';
 import { Customer } from '../sale/customer.js';
 import { MAX_ATTEMPTS, nextRetryDelayMs } from './retry-policy.js';
+import type { FiscalSystem } from '../tenant/tenant.js';
 
 export type InvoiceStatus =
   'PENDING' | 'PROCESSING' | 'RETRYING' | 'ISSUED' | 'REJECTED' | 'FAILED' | 'CANCELLED';
@@ -34,7 +35,7 @@ export interface FiscalError {
 
 export interface IssuedNfse {
   /** Sistema que emitiu: Sefin nacional (padrão) ou o da prefeitura (Ginfes). */
-  provider?: 'NACIONAL' | 'GINFES';
+  provider?: FiscalSystem;
   /** Nacional: chave de acesso (50 dígitos). Ginfes: código de verificação. */
   accessKey: string;
   number: string;

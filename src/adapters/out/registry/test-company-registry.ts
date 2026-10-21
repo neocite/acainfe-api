@@ -37,7 +37,8 @@ export class TestCompanyRegistry implements CompanyRegistry {
         },
         {
           code: '6203100',
-          description: 'Desenvolvimento e licenciamento de programas de computador não-customizáveis',
+          description:
+            'Desenvolvimento e licenciamento de programas de computador não-customizáveis',
           primary: false,
         },
       ],

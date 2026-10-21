@@ -7,6 +7,7 @@ import { InMemoryEmailSender } from '../../../src/adapters/out/email/resend-emai
 import { InMemoryWhatsappSender } from '../../../src/adapters/out/whatsapp/uazapi-whatsapp-sender.js';
 import { FakeExternalApis } from './fake-external-apis.js';
 import { FakeGinfes } from './fake-ginfes.js';
+import { FakePaulistana } from './fake-paulistana.js';
 import { FakeSefin } from './fake-sefin.js';
 
 export const ADMIN_KEY = 'admin-key-for-e2e-tests-0123456789';
@@ -18,6 +19,7 @@ export interface E2EApp {
   container: Container;
   sefin: FakeSefin;
   ginfes: FakeGinfes;
+  paulistana: FakePaulistana;
   external: FakeExternalApis;
   email: InMemoryEmailSender;
   whatsapp: InMemoryWhatsappSender;
@@ -33,6 +35,8 @@ export async function startE2EApp(envOverrides: Record<string, string> = {}): Pr
   await external.start();
   const ginfes = new FakeGinfes();
   await ginfes.start();
+  const paulistana = new FakePaulistana();
+  await paulistana.start();
   const env = loadEnv({
     NODE_ENV: 'test',
     MONGODB_URI: process.env.E2E_MONGODB_URI!,
@@ -54,9 +58,14 @@ export async function startE2EApp(envOverrides: Record<string, string> = {}): Pr
     GINFES_CITIES: 'none',
     GINFES_PRODUCTION_URL: ginfes.url,
     GINFES_HOMOLOGATION_URL: ginfes.url,
+    // SP também só por empresa (fiscalProvider PAULISTANA): os testes usam CNPJs de outros municípios.
+    PAULISTANA_CITIES: 'none',
+    PAULISTANA_URL: paulistana.url,
     GINFES_POLL_DELAYS_MS: '20,20,20,20',
     JOBS_ENABLED: 'true',
     JOBS_PROCESS_EVERY: '150',
+    // Os testes usam certificados autoassinados; a exigência da ICP-Brasil tem teste próprio.
+    CERTIFICATE_TRUST: 'any',
     ...envOverrides,
   });
   const email = new InMemoryEmailSender();
@@ -71,6 +80,7 @@ export async function startE2EApp(envOverrides: Record<string, string> = {}): Pr
     container,
     sefin,
     ginfes,
+    paulistana,
     external,
     email,
     whatsapp,
@@ -81,6 +91,7 @@ export async function startE2EApp(envOverrides: Record<string, string> = {}): Pr
       await container.close();
       await sefin.stop();
       await ginfes.stop();
+      await paulistana.stop();
       await external.stop();
     },
   };

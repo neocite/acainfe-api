@@ -134,12 +134,28 @@ describe('Onboarding self-service', () => {
     );
   });
 
-  it('outro usuário com o mesmo certificado passa a administrar a empresa existente', async () => {
+  it('outro usuário NÃO assume empresa já cadastrada: nada muda e os donos são avisados', async () => {
     const { pfx, password } = cert();
-    const first = await h.onboarding.submitCertificate(await login('a', 'a@x.com'), pfx, password);
-    const second = await h.onboarding.submitCertificate(await login('b', 'b@x.com'), pfx, password);
-    expect(second.tenant.id).toBe(first.tenant.id);
-    expect(second.tenant.ownerUserIds).toHaveLength(2);
+    const owner = await login('a', 'a@x.com');
+    const first = await h.onboarding.submitCertificate(owner, pfx, password);
+    const before = (await h.repos.certificates.findActive(first.tenant.id))!;
+
+    const other = cert();
+    await expect(
+      h.onboarding.submitCertificate(await login('b', 'b@x.com'), other.pfx, other.password)
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+
+    const tenant = (await h.repos.tenants.findById(first.tenant.id))!;
+    expect(tenant.ownerUserIds).toEqual([owner.id]);
+    expect((await h.repos.certificates.findActive(first.tenant.id))!.id).toBe(before.id);
+    expect(h.email.sent.at(-1)).toMatchObject({
+      subject: 'Tentativa de acesso à sua empresa no açaínfe',
+      text: expect.stringContaining('b@x.com'),
+    });
+
+    // O próprio dono pode reenviar (ex.: renovou o A1).
+    const again = await h.onboarding.submitCertificate(owner, pfx, password);
+    expect(again.tenant.id).toBe(first.tenant.id);
   });
 
   it('conecta AbacatePay: cria webhook e importa catálogo aguardando tributação', async () => {
@@ -200,9 +216,9 @@ describe('Onboarding self-service', () => {
       options: [{ id: mentoria.id, name: 'Mentoria' }],
     });
     const fields = async () =>
-      (await h.onboarding.status((await h.repos.tenants.findById(tenant.id))!)).readiness.recommended.map(
-        (i) => i.field
-      );
+      (
+        await h.onboarding.status((await h.repos.tenants.findById(tenant.id))!)
+      ).readiness.recommended.map((i) => i.field);
     expect(await fields()).toContain('defaultProduct');
 
     await expect(h.onboarding.setDefaultProduct(tenant, 'nao-existe')).rejects.toThrow(/Produto/);

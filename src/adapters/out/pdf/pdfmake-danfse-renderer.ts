@@ -6,6 +6,7 @@ import { applyBps, formatBps, formatBRL } from '../../../domain/shared/money.js'
 import { Logo } from '../../../domain/tenant/logo.js';
 import { approximateTaxRateBps, Tenant } from '../../../domain/tenant/tenant.js';
 import { summarizeGinfesXml } from '../fiscal/ginfes/ginfes-parser.js';
+import { summarizePaulistanaXml } from '../fiscal/paulistana/paulistana-parser.js';
 import { summarizeNfseXml } from '../fiscal/nacional/nfse-xml-parser.js';
 
 pdfmake.setFonts({
@@ -78,7 +79,13 @@ export class PdfmakeDanfseRenderer implements DanfseRenderer {
     if (!invoice.nfse) throw new Error('Nota ainda não emitida');
     const nfse = invoice.nfse;
     const ginfes = nfse.provider === 'GINFES';
-    const summary = ginfes ? summarizeGinfesXml(nfse.xml) : summarizeNfseXml(nfse.xml);
+    const summary = !nfse.xml
+      ? {}
+      : ginfes
+        ? summarizeGinfesXml(nfse.xml)
+        : nfse.provider === 'PAULISTANA'
+          ? summarizePaulistanaXml(nfse.xml)
+          : summarizeNfseXml(nfse.xml);
     const customer = invoice.customer;
     const cancelled = invoice.status === 'CANCELLED';
     const profile = invoice.taxProfile;

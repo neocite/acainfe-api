@@ -66,6 +66,18 @@ const EnvSchema = z.object({
     .string()
     .default('3000,5000,8000,12000')
     .transform((v) => v.split(',').filter(Boolean).map(Number)),
+  /**
+   * Municípios (IBGE) em que ME/EPP emitem pela NFS-e Paulistana (prefeitura de São Paulo).
+   * `none` = todos pelo nacional (a partir de 01/11/2026 o Simples de SP é obrigado ao Emissor Nacional).
+   */
+  PAULISTANA_CITIES: z.string().default('3550308'),
+  /** Web service síncrono da prefeitura de SP (aceita leiautes 1 e 2). Não há homologação. */
+  PAULISTANA_URL: z.string().url().default('https://nfews.prefeitura.sp.gov.br/lotenfe.asmx'),
+  /** Modo piloto: cada nota de SP espera aprovação (approve_invoice) antes do envio. */
+  PAULISTANA_PILOT: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
   /** Preço por NFS-e emitida, em centavos (oferta de lançamento: 80). */
   BILLING_PRICE_PER_INVOICE_CENTS: z.coerce.number().int().min(0).default(80),
   /** Dias com saldo em aberto antes de pausar a emissão. */
@@ -92,7 +104,17 @@ const EnvSchema = z.object({
   TEST_COMPANY_CNPJS: z
     .string()
     .default('')
-    .transform((v) => v.split(',').map((c) => c.trim()).filter(Boolean)),
+    .transform((v) =>
+      v
+        .split(',')
+        .map((c) => c.trim())
+        .filter(Boolean)
+    ),
+  /**
+   * Confiança no certificado enviado: `icp-brasil` exige cadeia até uma raiz da ICP-Brasil (padrão);
+   * `any` aceita qualquer um (só testes automatizados). CNPJs de TEST_COMPANY_CNPJS podem usar autoassinado.
+   */
+  CERTIFICATE_TRUST: z.enum(['icp-brasil', 'any']).default('icp-brasil'),
   JOBS_ENABLED: bool.default(true),
   JOBS_PROCESS_EVERY: z.string().default('5 seconds'),
 });

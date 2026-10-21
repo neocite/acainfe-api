@@ -11,6 +11,7 @@ import { CertificateMaterial } from '../ports/fiscal-provider.js';
 import { CertificateRepository, TenantRepository } from '../ports/repositories.js';
 import {
   CertificateParser,
+  CertificateTrust,
   Clock,
   EmailSender,
   IdGenerator,
@@ -35,6 +36,8 @@ export class CertificateService {
       certificates: CertificateRepository;
       tenants: TenantRepository;
       parser: CertificateParser;
+      /** Só e-CNPJ da ICP-Brasil (autoassinado não prova que quem envia representa a empresa). */
+      trust: CertificateTrust;
       cipher: SecretCipher;
       clock: Clock;
       ids: IdGenerator;
@@ -49,6 +52,7 @@ export class CertificateService {
     const metadata = this.deps.parser.parse(pfx, password);
     const now = this.deps.clock.now();
     assertCertificateUsable(metadata, tenant.cnpj, now);
+    await this.deps.trust.assertTrusted(pfx, password, tenant.cnpj);
     const certificate: Certificate = {
       id: this.deps.ids.next(),
       tenantId: tenant.id,
@@ -60,6 +64,11 @@ export class CertificateService {
     };
     await this.deps.certificates.saveActive(certificate);
     return this.toStatus(certificate, now);
+  }
+
+  /** Cadeia até a ICP-Brasil (CNPJs de teste podem usar certificado autoassinado). */
+  assertTrusted(pfx: Buffer, password: string, cnpj: string): Promise<void> {
+    return this.deps.trust.assertTrusted(pfx, password, cnpj);
   }
 
   /**

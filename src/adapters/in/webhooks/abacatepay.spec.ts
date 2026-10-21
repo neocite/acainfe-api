@@ -109,7 +109,9 @@ describe('AbacatePay', () => {
       totalCents: 1000,
     });
     expect(
-      mapAbacatePayPayload(pix({ productExternalId: 'prod_video' }), { defaultProductId: 'p-padrao' })
+      mapAbacatePayPayload(pix({ productExternalId: 'prod_video' }), {
+        defaultProductId: 'p-padrao',
+      })
     ).toMatchObject({ items: [{ productExternalId: 'prod_video', quantity: 1 }] });
   });
 

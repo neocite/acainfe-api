@@ -57,7 +57,8 @@ export class PastSalesController {
 
   @Post('ignore')
   @ApiOperation({
-    summary: 'Ignora (ou volta a considerar) pagamentos que não são venda, ex.: testes (nunca emitir)',
+    summary:
+      'Ignora (ou volta a considerar) pagamentos que não são venda, ex.: testes (nunca emitir)',
   })
   @ApiBody({ schema: schema(PastSalesIgnoreSchema) })
   ignore(@CurrentTenant() tenant: Tenant, @Body() body: unknown) {

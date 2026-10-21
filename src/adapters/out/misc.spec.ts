@@ -70,7 +70,7 @@ describe('uazapi', () => {
     ).rejects.toThrow(/HTTP 401: Invalid token/);
     expect(
       JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body)).file
-    ).toBe(Buffer.from('pdf').toString('base64'));
+    ).toBe(`data:application/pdf;base64,${Buffer.from('pdf').toString('base64')}`);
   });
 });
 

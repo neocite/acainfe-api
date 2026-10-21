@@ -135,7 +135,10 @@ describe('Webhook AbacatePay', () => {
     const withMetadata = await post(
       pix('pix_meta', { productExternalId: 'prod_consultoria' })
     ).expect(200);
-    expect(withMetadata.body).toMatchObject({ status: 'ACCEPTED', invoiceIds: [expect.any(String)] });
+    expect(withMetadata.body).toMatchObject({
+      status: 'ACCEPTED',
+      invoiceIds: [expect.any(String)],
+    });
 
     const noProduct = await post(pix('pix_sem_produto')).expect(200);
     expect(noProduct.body.status).toBe('IGNORED');

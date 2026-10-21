@@ -89,6 +89,14 @@ export interface CompanyInfo {
   email?: string;
 }
 
+/**
+ * Confiança no certificado: só e-CNPJ emitido pela ICP-Brasil prova que quem envia representa a
+ * empresa. Lança CERTIFICATE_INVALID se não houver cadeia válida até uma raiz confiável.
+ */
+export interface CertificateTrust {
+  assertTrusted(pfx: Buffer, password: string, cnpj: string): Promise<void>;
+}
+
 export interface CompanyRegistry {
   /** null quando o CNPJ não existe; lança em indisponibilidade. */
   lookup(cnpj: string): Promise<CompanyInfo | null>;

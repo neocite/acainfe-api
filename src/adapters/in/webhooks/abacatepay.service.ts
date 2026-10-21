@@ -123,7 +123,9 @@ export function mapAbacatePayPayload(
         ? [{ productId: options.defaultProductId, quantity: 1 }]
         : [];
   if (!checkout?.id || !items.length)
-    return { ignored: 'Pagamento sem produto (itens, metadata.productExternalId ou produto padrão)' };
+    return {
+      ignored: 'Pagamento sem produto (itens, metadata.productExternalId ou produto padrão)',
+    };
   const customer = data.customer ?? {};
   return {
     source: 'ABACATEPAY',

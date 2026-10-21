@@ -21,6 +21,7 @@ import { SaleService } from '../../src/application/use-cases/sale.service.js';
 import { TenantService } from '../../src/application/use-cases/tenant.service.js';
 import { StaticServiceCodeCatalog } from '../../src/adapters/out/catalog/static-service-code-catalog.js';
 import { ForgeCertificateParser } from '../../src/adapters/out/crypto/forge-certificate-parser.js';
+import { TRUST_ANY } from '../../src/adapters/out/crypto/icp-brasil-trust.js';
 import { InMemoryEmailSender } from '../../src/adapters/out/email/resend-email-sender.js';
 import { InMemoryWhatsappSender } from '../../src/adapters/out/whatsapp/uazapi-whatsapp-sender.js';
 import { MunicipalParamsGateway } from '../../src/application/ports/fiscal-provider.js';
@@ -173,6 +174,8 @@ export function buildAppHarness() {
   const certificates = new CertificateService({
     certificates: repos.certificates,
     tenants: repos.tenants,
+    // Testes usam certificado autoassinado; a cadeia ICP-Brasil é testada no próprio adaptador.
+    trust: TRUST_ANY,
     parser: new ForgeCertificateParser(),
     cipher: new FakeCipher(),
     clock,
