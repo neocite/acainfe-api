@@ -89,6 +89,33 @@ describe('Cobrança interna (R$ por nota emitida)', () => {
     expect(res.body.info.description).toMatch(/curl -X POST/);
     expect(res.body.servers).toEqual([{ url: 'https://api.acainfe.test' }]);
 
+    // Modelo de erro tipado em toda operação e respostas de sucesso tipadas nas principais.
+    // OpenAPI 3.1 (dialeto dos esquemas gerados pelo Zod), sem $schema embutido; validado no Redocly.
+    expect(res.body.openapi).toBe('3.1.0');
+    expect(JSON.stringify(res.body)).not.toContain('"$schema"');
+    expect(res.body.components.schemas.Error.required).toEqual(['error', 'message']);
+    const allOps = Object.entries(res.body.paths).flatMap(([path, item]) =>
+      Object.entries(
+        item as Record<string, { responses: Record<string, { content?: unknown }> }>
+      ).map(([method, op]) => ({ key: `${method.toUpperCase()} ${path}`, op }))
+    );
+    for (const { key, op } of allOps) {
+      expect(JSON.stringify(op.responses['4XX']), key).toContain('#/components/schemas/Error');
+      expect(JSON.stringify(op.responses['5XX']), key).toContain('#/components/schemas/Error');
+    }
+    const ok = (key: string, code = '200') =>
+      JSON.stringify(allOps.find((o) => o.key === key)!.op.responses[code]);
+    expect(ok('POST /v1/sales', '202')).toContain('#/components/schemas/SaleResult');
+    expect(ok('GET /v1/invoices/{id}')).toContain('#/components/schemas/Invoice');
+    expect(ok('GET /v1/public/coverage')).toContain('#/components/schemas/Coverage');
+    expect(
+      JSON.stringify(allOps.find((o) => o.key === 'GET /v1/invoices/{id}')!.op.responses['401'])
+    ).toContain('Error');
+    expect(
+      allOps.find((o) => o.key === 'GET /v1/public/pricing')!.op.responses['401']
+    ).toBeUndefined();
+    expect(res.body.info.description).toMatch(/Deprecation.*Sunset/s);
+
     const openapi = await http().get('/openapi.json').expect(200);
     expect(openapi.headers['content-type']).toMatch(/application\/json/);
     expect(openapi.body).toEqual(res.body);
@@ -101,6 +128,8 @@ describe('Cobrança interna (R$ por nota emitida)', () => {
       openapi: 'https://api.acainfe.test/openapi.json',
     });
     expect(JSON.stringify(card.body)).not.toMatch(/admin|x-app-key/i);
+    const alias = await http().get('/.well-known/mcp/server-card.json').expect(200);
+    expect(alias.body).toEqual(card.body);
   });
 
   it('cidades atendidas para a landing (só as liberadas, sem autenticação)', async () => {
