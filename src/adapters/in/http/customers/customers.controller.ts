@@ -36,6 +36,7 @@ export class CustomersController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'Lista os clientes (tomadores) cadastrados' })
   list(@CurrentTenant() tenant: Tenant, @Query() query: Record<string, string>) {
     const q = parseInput(
       z.object({
@@ -49,18 +50,21 @@ export class CustomersController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Um cliente (tomador)' })
   get(@CurrentTenant() tenant: Tenant, @Param('id') id: string) {
     return this.c.customers.get(tenant.id, id);
   }
 
   @Patch(':id')
   @ApiBody({ schema: schema(UpdateCustomerSchema) })
+  @ApiOperation({ summary: 'Atualiza os dados de um cliente' })
   update(@CurrentTenant() tenant: Tenant, @Param('id') id: string, @Body() body: unknown) {
     return this.c.customers.update(tenant.id, id, parseInput(UpdateCustomerSchema, body));
   }
 
   @Delete(':id')
   @HttpCode(204)
+  @ApiOperation({ summary: 'Remove um cliente' })
   async remove(@CurrentTenant() tenant: Tenant, @Param('id') id: string) {
     await this.c.customers.delete(tenant.id, id);
   }

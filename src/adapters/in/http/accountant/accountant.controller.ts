@@ -41,6 +41,7 @@ export class AccountantController {
 
   @Delete()
   @HttpCode(204)
+  @ApiOperation({ summary: 'Remove o contador cadastrado (deixa de receber o pacote mensal)' })
   async remove(@CurrentTenant() tenant: Tenant) {
     await this.c.accountant.setAccountant(tenant.id, null);
   }

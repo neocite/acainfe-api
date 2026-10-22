@@ -14,8 +14,10 @@ import {
   HTTP_CONTROLLERS,
 } from './adapters/in/http/index.js';
 import {
+  getPublicOpenApi,
   PUBLIC_API_DESCRIPTION,
   publicApiDocument,
+  setPublicOpenApi,
 } from './adapters/in/http/shared/public-docs.js';
 import type { Container } from './config/container.js';
 
@@ -75,8 +77,7 @@ export async function createApp(container: Container): Promise<NestFastifyApplic
     .addApiKey({ type: 'apiKey', in: 'header', name: 'x-api-key' }, 'apiKey');
   if (container.env.PUBLIC_BASE_URL) builder.addServer(container.env.PUBLIC_BASE_URL);
   // Documentação pública: sem as rotas internas (admin e backend do app web).
-  SwaggerModule.setup('docs', app, () =>
-    publicApiDocument(SwaggerModule.createDocument(app, builder.build()))
-  );
+  setPublicOpenApi(() => publicApiDocument(SwaggerModule.createDocument(app, builder.build())));
+  SwaggerModule.setup('docs', app, () => getPublicOpenApi()!);
   return app;
 }

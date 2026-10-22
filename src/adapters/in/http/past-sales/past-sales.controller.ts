@@ -42,6 +42,9 @@ export class PastSalesController {
   }
 
   @Get('items')
+  @ApiOperation({
+    summary: 'Vendas pagas antes do açaínfe (ou sem nota), filtradas por mês e situação',
+  })
   list(@CurrentTenant() tenant: Tenant, @Query() query: Record<string, string>) {
     return this.ops.list(tenant, query);
   }

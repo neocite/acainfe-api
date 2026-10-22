@@ -42,6 +42,9 @@ export class CertificatesController {
   }
 
   @Get('current')
+  @ApiOperation({
+    summary: 'Situação do certificado A1 ativo (validade, titular e emissor; nunca o arquivo)',
+  })
   current(@CurrentTenant() tenant: Tenant) {
     return this.c.certificates.status(tenant.id);
   }

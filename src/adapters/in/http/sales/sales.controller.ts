@@ -33,6 +33,9 @@ export class SalesController {
   }
 
   @Get(':id')
+  @ApiOperation({
+    summary: 'Uma venda com as notas geradas (uma por tributação) e a situação de estorno',
+  })
   async get(@CurrentTenant() tenant: Tenant, @Param('id') id: string) {
     const result = await this.c.sales.get(tenant.id, id);
     return {

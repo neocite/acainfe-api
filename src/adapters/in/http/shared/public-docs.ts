@@ -1,10 +1,22 @@
 import type { OpenAPIObject } from '@nestjs/swagger';
 
 /**
- * Rotas que não entram na documentação pública: administração interna e o backend do app web
- * (autenticado com a chave do app). Elas continuam funcionando; só não aparecem em /docs.
+ * Rotas que não entram na documentação pública: administração interna, o backend do app web
+ * (autenticado com a chave do app), os webhooks chamados pelo gateway e a criação de empresa (só
+ * admin). Elas continuam funcionando; só não aparecem em /docs e /openapi.json.
  */
-const INTERNAL_PREFIXES = ['/v1/admin', '/v1/app'];
+const INTERNAL_PREFIXES = ['/v1/admin', '/v1/app', '/v1/webhooks'];
+const INTERNAL_PATHS = new Set(['/v1/tenants']);
+
+let publicDocument: (() => OpenAPIObject) | undefined;
+
+/** Registra (no boot) como montar o contrato público; servido em /docs-json e /openapi.json. */
+export function setPublicOpenApi(factory: () => OpenAPIObject): void {
+  let cached: OpenAPIObject | undefined;
+  publicDocument = () => (cached ??= factory());
+}
+
+export const getPublicOpenApi = (): OpenAPIObject | undefined => publicDocument?.();
 
 export const PUBLIC_API_DESCRIPTION = `Emissão de NFS-e com a tributação de cada produto, para quem vende no AbacatePay.
 
@@ -26,7 +38,9 @@ A emissão é assíncrona: acompanhe com \`GET /v1/invoices/{id}\`.
 export function publicApiDocument(doc: OpenAPIObject): OpenAPIObject {
   const paths = Object.fromEntries(
     Object.entries(doc.paths).filter(
-      ([path]) => !INTERNAL_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))
+      ([path]) =>
+        !INTERNAL_PATHS.has(path) &&
+        !INTERNAL_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))
     )
   );
   const usedTags = new Set(
