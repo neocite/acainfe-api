@@ -51,7 +51,7 @@ export class ProductService {
       product = createProduct(id, tenant.id, { ...input, taxProfile }, now, via);
     } else if (!company) {
       throw DomainError.validation(
-        'Informe a tributação (taxProfile) ou defina antes o que a empresa vende (businessType), para aplicarmos o perfil fiscal padrão'
+        'Informe a tributação (taxProfile) ou defina antes o que a empresa vende (businessType) — em "Outro serviço", a tributação padrão da empresa (defaultService) — para aplicarmos o perfil fiscal padrão'
       );
     } else {
       const base = createProduct(
@@ -62,7 +62,7 @@ export class ProductService {
         'PROFILE',
         `Perfil fiscal padrão: ${company.definition.label}`
       );
-      product = company.definition.validated ? base : asPendingReview(base, company.taxProfile);
+      product = company.autoConfirm ? base : asPendingReview(base, company.taxProfile);
     }
     await this.assertUniqueExternalId(tenant.id, product.externalId);
     await this.deps.products.create(product);

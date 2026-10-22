@@ -1,8 +1,9 @@
 import {
   BUSINESS_TYPES,
   BusinessType,
+  cnaeMatchesProfile,
+  CUSTOM_PROFILE,
   FISCAL_PROFILES,
-  FiscalProfileDefinition,
 } from '../product/fiscal-profiles.js';
 import { createTaxProfile, TaxProfile } from '../product/tax-profile.js';
 import { DomainError } from '../shared/domain-error.js';
@@ -543,12 +544,38 @@ export function companyIssRateBps(tenant: Tenant): number | undefined {
   return undefined;
 }
 
-/** Perfil fiscal padrão da empresa (pelo que ela vende), já com a alíquota de ISS da empresa. */
-export function companyFiscalProfile(
-  tenant: Tenant
-): { definition: FiscalProfileDefinition; taxProfile: TaxProfile } | undefined {
+export interface CompanyFiscalProfile {
+  definition: { businessType: BusinessType; label: string; validated: boolean };
+  taxProfile: TaxProfile;
+  /**
+   * Confirma os produtos sozinho? Só perfil validado e coerente com os CNAEs da empresa. Os demais
+   * (perfil não validado, CNAE incompatível, "Outro serviço") entram como sugestão.
+   */
+  autoConfirm: boolean;
+  /** Por que não confirmou sozinho, quando o perfil é validado mas os CNAEs não batem. */
+  warning?: string;
+}
+
+/**
+ * Tributação padrão da empresa (pelo que ela vende), já com a alíquota de ISS da empresa. Em
+ * "Outro serviço" vem da tributação padrão que o próprio usuário definiu (defaultService), se houver.
+ */
+export function companyFiscalProfile(tenant: Tenant): CompanyFiscalProfile | undefined {
   if (!tenant.businessType) return undefined;
+  if (tenant.businessType === 'CUSTOM') {
+    const own = tenant.defaultService?.taxProfile;
+    if (!own) return undefined;
+    return {
+      definition: CUSTOM_PROFILE,
+      taxProfile: createTaxProfile({
+        ...own,
+        issRateBps: own.issRateBps ?? companyIssRateBps(tenant),
+      }),
+      autoConfirm: false,
+    };
+  }
   const definition = FISCAL_PROFILES[tenant.businessType];
+  const coherent = cnaeMatchesProfile(tenant.cnaes, definition);
   return {
     definition,
     taxProfile: createTaxProfile({
@@ -556,6 +583,11 @@ export function companyFiscalProfile(
       localServiceCode: definition.localServiceCodes?.[tenant.cityCode],
       issRateBps: companyIssRateBps(tenant),
     }),
+    autoConfirm: definition.validated && coherent,
+    warning:
+      definition.validated && !coherent
+        ? `Nenhum CNAE da empresa é compatível com o perfil "${definition.label}" (${definition.examples.toLowerCase()}). Os produtos entram como sugestão: confira o que você vende e confirme cada um, ou escolha "${CUSTOM_PROFILE.label}".`
+        : undefined,
   };
 }
 

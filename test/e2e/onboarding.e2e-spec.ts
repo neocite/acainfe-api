@@ -187,7 +187,22 @@ describe('Onboarding self-service (app Replit → açaínfe → MCP)', () => {
     expect(profiles.body.map((p: { businessType: string }) => p.businessType)).toEqual([
       'INFOPRODUCER',
       'MICROSAAS',
+      'CUSTOM',
     ]);
+    expect(profiles.body[2]).toMatchObject({ validated: false, taxProfile: null });
+    // Formulário avançado ("Outro serviço"): busca de código com as opções oficiais de NBS.
+    const codes = await asUser(http().get('/v1/app/service-codes?q=design')).expect(200);
+    expect(
+      codes.body.find((c: { nationalServiceCode: string }) => c.nationalServiceCode === '230101')
+    ).toMatchObject({
+      nationalServiceCode: '230101',
+      nbsOptions: expect.arrayContaining(['114093000']),
+    });
+    await asUser(
+      http().get(`/v1/app/companies/${tenantId}/municipal-rate/230101`),
+      'intruso',
+      'x@x.com'
+    ).expect(404);
     const answered = await asUser(http().patch(`/v1/app/companies/${tenantId}`))
       .send({
         businessType: 'MICROSAAS',

@@ -3,7 +3,7 @@ import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 import type { Container } from '../../../../config/container.js';
 import type { User } from '../../../../domain/account/user.js';
-import { FISCAL_PROFILES } from '../../../../domain/product/fiscal-profiles.js';
+import { CUSTOM_PROFILE, FISCAL_PROFILES } from '../../../../domain/product/fiscal-profiles.js';
 import { DomainError } from '../../../../domain/shared/domain-error.js';
 import { toProductView } from '../../presenters.js';
 import { CreateProductSchema, TaxProfileSchema } from '../../schemas.js';
@@ -93,16 +93,44 @@ export class AppProductsController {
     };
   }
 
+  @Get('service-codes')
+  @ApiOperation({
+    summary:
+      'Busca código de serviço nacional por texto, com as opções oficiais de NBS e cIndOp (formulário de tributação)',
+  })
+  serviceCodes(@Query('q') q = '', @Query('limit') limit?: string) {
+    return this.c.products.searchServiceCodes(q, Math.min(Number(limit) || 20, 50));
+  }
+
+  @Get('companies/:tenantId/municipal-rate/:nationalServiceCode')
+  @ApiOperation({
+    summary:
+      'Alíquota de ISS que a prefeitura da empresa publica para o código (consulta com o certificado dela)',
+  })
+  async municipalRate(
+    @CurrentUser() user: User,
+    @Param('tenantId') tenantId: string,
+    @Param('nationalServiceCode') code: string
+  ) {
+    const tenant = await this.c.accounts.ownedTenant(user, tenantId);
+    return this.c.products.municipalParams(tenant, code);
+  }
+
   @Get('fiscal-profiles')
   @ApiOperation({ summary: 'Perfis fiscais padrão (resposta da pergunta "O que você vende?")' })
   fiscalProfiles() {
-    return Object.values(FISCAL_PROFILES).map((p) => ({
-      businessType: p.businessType,
-      label: p.label,
-      examples: p.examples,
-      validated: p.validated,
-      validationNote: p.validationNote,
-      taxProfile: p.taxProfile,
-    }));
+    return [
+      ...Object.values(FISCAL_PROFILES).map((p) => ({
+        businessType: p.businessType,
+        label: p.label,
+        examples: p.examples,
+        validated: p.validated,
+        validationNote: p.validationNote,
+        taxProfile: p.taxProfile,
+        expectedCnaePrefixes: p.expectedCnaePrefixes,
+      })),
+      // "Outro serviço": sem tributação pronta; o usuário define a padrão e confirma cada produto.
+      { ...CUSTOM_PROFILE, taxProfile: null, expectedCnaePrefixes: [] },
+    ];
   }
 }

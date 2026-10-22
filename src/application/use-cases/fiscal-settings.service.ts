@@ -1,4 +1,3 @@
-import { FISCAL_PROFILES } from '../../domain/product/fiscal-profiles.js';
 import { productWarnings } from '../../domain/product/product.js';
 import { IbsCbsProfile } from '../../domain/product/tax-profile.js';
 import { DomainError } from '../../domain/shared/domain-error.js';
@@ -57,6 +56,10 @@ export interface FiscalSettings {
     profileLabel: string;
     /** Perfil validado por contador (confirma os produtos sozinho) ou só sugestão. */
     validated: boolean;
+    /** Confirma produtos sozinho (perfil validado e coerente com os CNAEs). */
+    autoConfirm: boolean;
+    /** Aviso quando o perfil validado não bate com os CNAEs da empresa. */
+    warning?: string;
   };
   /** ISS da empresa: informado, estimado pelo Simples ou não definido. */
   issRate: { bps?: number; source: 'INFORMED' | 'SIMPLES_ESTIMATE' | 'NOT_SET' };
@@ -120,7 +123,9 @@ export class FiscalSettingsService {
           ? {
               businessType: tenant.businessType,
               profileLabel: profile.definition.label,
-              validated: FISCAL_PROFILES[tenant.businessType].validated,
+              validated: profile.definition.validated,
+              autoConfirm: profile.autoConfirm,
+              warning: profile.warning,
               nationalServiceCode: profile.taxProfile.nationalServiceCode,
               localServiceCode: profile.taxProfile.localServiceCode,
               nbsCode: profile.taxProfile.nbsCode,

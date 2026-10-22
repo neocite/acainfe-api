@@ -8,7 +8,8 @@ import {
   Product,
   productExternalIds,
 } from '../../domain/product/product.js';
-import { BusinessType, FISCAL_PROFILES } from '../../domain/product/fiscal-profiles.js';
+import { BusinessType } from '../../domain/product/fiscal-profiles.js';
+import { TaxProfile } from '../../domain/product/tax-profile.js';
 import { ProductService } from './product.service.js';
 import { DomainError } from '../../domain/shared/domain-error.js';
 import {
@@ -276,6 +277,11 @@ export class OnboardingService {
     patch: {
       /** O que você vende? Define a tributação padrão dos produtos. */
       businessType?: BusinessType;
+      /** Tributação padrão definida pelo usuário ("Outro serviço"): sugestão para os produtos. */
+      defaultService?: {
+        taxProfile: Partial<TaxProfile> & { nationalServiceCode: string };
+        serviceDescription?: string;
+      } | null;
       /** Tributos aproximados (Lei 12.741): percentual (IBPT) e texto da nota. */
       approximateTaxes?: { rateBps?: number; descriptionTemplate?: string; source?: string };
       /** Alíquota de ISS (pontos-base): só é pedida quando a prefeitura não publica e não dá para calcular. */
@@ -317,7 +323,12 @@ export class OnboardingService {
             };
       await this.deps.tenants.update(updated);
     }
-    if (patch.businessType || patch.issRateBps !== undefined || patch.taxRegime) {
+    if (
+      patch.businessType ||
+      patch.issRateBps !== undefined ||
+      patch.taxRegime ||
+      patch.defaultService !== undefined
+    ) {
       updated = await this.applyFiscalProfile(updated);
     }
     return this.status(updated);
@@ -330,10 +341,10 @@ export class OnboardingService {
    */
   private async applyFiscalProfile(tenant: Tenant): Promise<Tenant> {
     let current = tenant;
-    const definition = current.businessType && FISCAL_PROFILES[current.businessType];
-    if (!definition) return current;
+    const initial = companyFiscalProfile(current);
+    if (!initial) return current;
     if (companyIssRateBps(current) === undefined && current.taxRegime !== 'MEI') {
-      const rate = await this.municipalIssRate(current, definition.taxProfile.nationalServiceCode);
+      const rate = await this.municipalIssRate(current, initial.taxProfile.nationalServiceCode);
       if (rate !== undefined) {
         current = { ...current, issRateBps: rate, updatedAt: this.deps.clock.now() };
         await this.deps.tenants.update(current);
@@ -355,7 +366,7 @@ export class OnboardingService {
     company: NonNullable<ReturnType<typeof companyFiscalProfile>>
   ): Product {
     const now = this.deps.clock.now();
-    if (!company.definition.validated) {
+    if (!company.autoConfirm) {
       return { ...product, suggestedTaxProfile: company.taxProfile, updatedAt: now };
     }
     return {
