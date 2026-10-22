@@ -281,6 +281,23 @@ Com produto padrão, **todo** Pix sem produto vira nota, inclusive testes. Por i
 - **Pagamentos que não são venda** (ex.: testes): `ignore_past_sales` (ou `POST .../past-sales/ignore`) marca como `IGNORED`, com motivo. Eles nunca viram nota e continuam ignorados numa nova varredura. Para desfazer, use `ignored: false`.
 - **Reconectar o AbacatePay** (ex.: key com mais permissões) não cria outro webhook nem troca o segredo.
 
+### Régua de ativação
+
+Lembra, por WhatsApp e e-mail, quem parou no meio do cadastro. O job roda de hora em hora, só entre 9h e 20h de Brasília.
+
+| Etapa | Lembretes (a partir do início da etapa) |
+|---|---|
+| Conta criada, sem certificado | 1h, 24h e 72h |
+| Certificado enviado, sem AbacatePay | 24h e 72h |
+| Produtos aguardando tributação | 24h e 72h |
+| Tudo pronto, sem nenhuma nota | 7 dias |
+
+- **Quando para:** quando a etapa é concluída, quando a empresa emite a primeira nota ou quando a pessoa clica em "não quero mais receber" (link assinado, `GET /v1/public/activation/unsubscribe`). Empresas na lista de espera não recebem lembrete: o aviso de liberação da cidade já existe.
+- **Sem rajada:** se vários lembretes vencerem juntos (por exemplo, com o servidor parado), só o mais recente é enviado. Os envios ficam registrados no usuário.
+- **Resumo diário (9h):** quem está travado, em que etapa, há quanto tempo e o contato vão para `ACTIVATION_DIGEST_EMAIL` e `ACTIVATION_DIGEST_WHATSAPP`.
+- **Funil no admin:** `GET /v1/admin/activation`.
+- **WhatsApp:** sai da instância configurada em `UAZAPI_BASE_URL` e `UAZAPI_TOKEN`.
+
 ### Envio mensal ao contador
 
 - **Cadastro:** `PUT /v1/tenants/me/accountant` (ou tool MCP `set_accountant`, ou app) com e-mail e/ou WhatsApp do contador. O dia do envio vem de `dayOfMonth` (padrão: dia 1).

@@ -66,6 +66,8 @@ export async function startE2EApp(envOverrides: Record<string, string> = {}): Pr
     JOBS_PROCESS_EVERY: '150',
     // Os testes usam certificados autoassinados; a exigência da ICP-Brasil tem teste próprio.
     CERTIFICATE_TRUST: 'any',
+    // Sem lembretes automáticos nos e2e (o job rodaria no minuto 5 e mudaria a contagem de e-mails).
+    ACTIVATION_ENABLED: 'false',
     ...envOverrides,
   });
   const email = new InMemoryEmailSender();

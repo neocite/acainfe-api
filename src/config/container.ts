@@ -13,6 +13,7 @@ import {
   HttpsGinfesTransport,
 } from '../adapters/out/fiscal/ginfes/ginfes-soap.js';
 import { fiscalSystemFor, Tenant } from '../domain/tenant/tenant.js';
+import { normalizeBrazilianPhone } from '../domain/shared/document.js';
 import { Agenda } from 'agenda';
 import { Db, MongoClient } from 'mongodb';
 import {
@@ -36,6 +37,7 @@ import { CertificateService } from '../application/use-cases/certificate.service
 import { CustomerService } from '../application/use-cases/customer.service.js';
 import { RefundService } from '../application/use-cases/refund.service.js';
 import { AccountService } from '../application/use-cases/account.service.js';
+import { ActivationService } from '../application/use-cases/activation.service.js';
 import { BillingService } from '../application/use-cases/billing.service.js';
 import { BillingInvoicingService } from '../application/use-cases/billing-invoicing.service.js';
 import { AccountantService } from '../application/use-cases/accountant.service.js';
@@ -129,6 +131,7 @@ export interface Container {
   onboarding: OnboardingService;
   fiscalSettings: FiscalSettingsService;
   billing: BillingService;
+  activation: ActivationService;
   billingInvoicing: BillingInvoicingService;
   accountant: AccountantService;
   pastSales: PastSalesService;
@@ -413,6 +416,26 @@ export async function buildContainer(
     clock,
     logger,
   });
+  const activation = new ActivationService({
+    users: repos.users,
+    tenants: repos.tenants,
+    products: repos.products,
+    invoices: repos.invoices,
+    email,
+    whatsapp,
+    links,
+    clock,
+    logger,
+    config: {
+      enabled: env.ACTIVATION_ENABLED,
+      appUrl: env.APP_URL,
+      digestEmail: env.ACTIVATION_DIGEST_EMAIL,
+      digestWhatsapp: env.ACTIVATION_DIGEST_WHATSAPP
+        ? normalizeBrazilianPhone(env.ACTIVATION_DIGEST_WHATSAPP)
+        : undefined,
+      lookbackDays: 30,
+    },
+  });
   const abacatepay = new AbacatePayWebhookService({ tenants, sales, refunds, logger });
 
   return {
@@ -431,6 +454,7 @@ export async function buildContainer(
     fiscalSettings,
     billing,
     billingInvoicing,
+    activation,
     accountant,
     pastSales,
     certificates,
@@ -446,6 +470,7 @@ export async function buildContainer(
         sales,
         billing,
         billingInvoicing,
+        activation,
         accountant,
         certificates,
         logger,

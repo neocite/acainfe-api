@@ -10,6 +10,8 @@ export const JOBS = {
   chargeInvoice: 'charge-invoice',
   billingDaily: 'billing-daily',
   billingInvoices: 'billing-monthly-invoices',
+  activationReminders: 'activation-reminders',
+  activationDigest: 'activation-digest',
   accountantMonthly: 'accountant-monthly',
   reconcile: 'reconcile-invoices',
   certificateExpiry: 'certificate-expiry-warning',

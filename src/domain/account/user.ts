@@ -1,3 +1,4 @@
+import type { ActivationLog } from '../activation/activation.js';
 import { DomainError } from '../shared/domain-error.js';
 import { normalizeBrazilianPhone, normalizeEmail } from '../shared/document.js';
 
@@ -11,6 +12,8 @@ export interface User {
   /** 55DDDNUMERO */
   whatsapp?: string;
   tenantIds: string[];
+  /** Lembretes da régua de ativação já enviados (e o pedido para não receber mais). */
+  activation?: ActivationLog;
   createdAt: Date;
   updatedAt: Date;
 }
