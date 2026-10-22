@@ -41,6 +41,9 @@ export class TenantsController {
   @Get('me')
   @UseGuards(ApiKeyGuard)
   @ApiSecurity('apiKey')
+  @ApiOperation({
+    summary: 'Dados da empresa autenticada, pendências para emitir (readiness) e integrações',
+  })
   me(@CurrentTenant() tenant: Tenant) {
     return toTenantView(tenant);
   }
@@ -49,6 +52,7 @@ export class TenantsController {
   @UseGuards(ApiKeyGuard)
   @ApiSecurity('apiKey')
   @ApiBody({ schema: schema(UpdateTenantSchema) })
+  @ApiOperation({ summary: 'Atualiza dados cadastrais e fiscais da empresa' })
   update(@CurrentTenant() tenant: Tenant, @Body() body: unknown) {
     return this.c.tenants.update(tenant.id, parseInput(UpdateTenantSchema, body));
   }

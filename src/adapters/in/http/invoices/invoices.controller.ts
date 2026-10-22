@@ -28,17 +28,20 @@ export class InvoicesController {
   constructor(@Inject(CONTAINER) private readonly c: Container) {}
 
   @Get()
+  @ApiOperation({ summary: 'Lista notas, com filtros por status, período e CPF/CNPJ do tomador' })
   async list(@CurrentTenant() tenant: Tenant, @Query() query: Record<string, string>) {
     const page = await this.c.invoices.list(tenant.id, parseInput(ListInvoicesSchema, query));
     return { ...page, items: page.items.map((i) => toInvoiceView(i, this.c.links)) };
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Status, número, chave, link do PDF e histórico de uma nota' })
   async get(@CurrentTenant() tenant: Tenant, @Param('id') id: string) {
     return toInvoiceView(await this.c.invoices.get(tenant.id, id), this.c.links);
   }
 
   @Get(':id/pdf')
+  @ApiOperation({ summary: 'PDF (DANFSe) da nota emitida' })
   async pdf(@CurrentTenant() tenant: Tenant, @Param('id') id: string, @Res() reply: FastifyReply) {
     const pdf = await this.c.invoices.pdf(tenant, id);
     return reply
@@ -48,6 +51,7 @@ export class InvoicesController {
   }
 
   @Get(':id/xml')
+  @ApiOperation({ summary: 'XML da nota emitida, como gravado pela prefeitura ou pela Sefin' })
   async xml(@CurrentTenant() tenant: Tenant, @Param('id') id: string, @Res() reply: FastifyReply) {
     const invoice = await this.c.invoices.get(tenant.id, id);
     if (!invoice.nfse) throw DomainError.invalidState('A nota ainda não foi emitida');
@@ -62,6 +66,7 @@ export class InvoicesController {
 
   @Post(':id/cancel')
   @ApiBody({ schema: schema(CancelInvoiceSchema) })
+  @ApiOperation({ summary: 'Cancela uma NFS-e emitida (irreversível)' })
   async cancel(@CurrentTenant() tenant: Tenant, @Param('id') id: string, @Body() body: unknown) {
     const input = parseInput(CancelInvoiceSchema, body);
     return toInvoiceView(
@@ -72,6 +77,7 @@ export class InvoicesController {
 
   @Post(':id/retry')
   @HttpCode(202)
+  @ApiOperation({ summary: 'Reprocessa uma nota rejeitada ou com falha' })
   async retry(@CurrentTenant() tenant: Tenant, @Param('id') id: string) {
     return toInvoiceView(await this.c.invoices.retry(tenant.id, id), this.c.links);
   }
@@ -79,6 +85,7 @@ export class InvoicesController {
   @Post(':id/resend')
   @HttpCode(202)
   @ApiBody({ schema: schema(ResendInvoiceSchema) })
+  @ApiOperation({ summary: 'Reenvia a nota ao cliente por e-mail ou WhatsApp' })
   async resend(@CurrentTenant() tenant: Tenant, @Param('id') id: string, @Body() body: unknown) {
     const input = parseInput(ResendInvoiceSchema, body);
     return toInvoiceView(

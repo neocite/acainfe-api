@@ -129,7 +129,8 @@ describe('NFS-e Paulistana (São Paulo) com modo piloto', () => {
 
     const one = await call('get_municipal_invoice', { number: '9001' });
     expect(one.structuredContent).toMatchObject({ number: '9001', amountCents: 9700 });
-    const today = new Date().toISOString().slice(0, 10);
+    // Data de Brasília (a nota é do dia local; em UTC pode já ser o dia seguinte).
+    const today = new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10);
     const municipal = await call('list_municipal_invoices', { from: today, to: today });
     expect(municipal.structuredContent!.items).toEqual([
       expect.objectContaining({ number: '9001', customerName: 'Ana Souza', issuedByAcainfe: true }),

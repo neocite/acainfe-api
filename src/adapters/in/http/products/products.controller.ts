@@ -40,6 +40,7 @@ export class ProductsController {
   }
 
   @Get('products')
+  @ApiOperation({ summary: 'Lista os produtos/serviços e a tributação de cada um' })
   async list(@CurrentTenant() tenant: Tenant, @Query() query: Record<string, string>) {
     const q = parseInput(
       z.object({
@@ -58,12 +59,14 @@ export class ProductsController {
   }
 
   @Get('products/:id')
+  @ApiOperation({ summary: 'Um produto e a tributação dele' })
   async get(@CurrentTenant() tenant: Tenant, @Param('id') id: string) {
     return toProductView(await this.c.products.get(tenant.id, id));
   }
 
   @Patch('products/:id')
   @ApiBody({ schema: schema(UpdateProductSchema) })
+  @ApiOperation({ summary: 'Atualiza nome, descrição, preço ou tributação de um produto' })
   async update(@CurrentTenant() tenant: Tenant, @Param('id') id: string, @Body() body: unknown) {
     const product = await this.c.products.update(tenant, id, parseInput(UpdateProductSchema, body));
     await this.c.sales.resumeHeld(tenant.id);
@@ -71,6 +74,7 @@ export class ProductsController {
   }
 
   @Delete('products/:id')
+  @ApiOperation({ summary: 'Desativa um produto (novas vendas com ele são recusadas)' })
   deactivate(@CurrentTenant() tenant: Tenant, @Param('id') id: string) {
     return this.c.products.deactivate(tenant.id, id);
   }

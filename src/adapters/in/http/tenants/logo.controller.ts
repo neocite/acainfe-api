@@ -48,6 +48,7 @@ export class LogoController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'Logo da empresa usada no PDF da nota' })
   async get(@CurrentTenant() tenant: Tenant, @Res() reply: FastifyReply) {
     const logo = await this.c.tenants.getLogo(tenant.id);
     if (!logo) throw DomainError.notFound('Logo', tenant.id);
@@ -56,6 +57,7 @@ export class LogoController {
 
   @Delete()
   @HttpCode(204)
+  @ApiOperation({ summary: 'Remove a logo da empresa' })
   async remove(@CurrentTenant() tenant: Tenant) {
     await this.c.tenants.removeLogo(tenant.id);
   }

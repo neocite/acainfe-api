@@ -64,16 +64,43 @@ describe('Cobrança interna (R$ por nota emitida)', () => {
     });
   });
 
-  it('documentação pública da API: sem rotas internas, com autenticação e exemplo', async () => {
+  it('documentação pública da API: sem rotas internas, toda operação descrita, /openapi.json e cartão MCP', async () => {
     const res = await http().get('/docs-json').expect(200);
     const paths = Object.keys(res.body.paths);
     expect(paths).toEqual(
       expect.arrayContaining(['/v1/sales', '/v1/invoices/{id}', '/v1/public/coverage'])
     );
-    expect(paths.filter((p) => p.startsWith('/v1/admin') || p.startsWith('/v1/app'))).toEqual([]);
+    expect(
+      paths.filter(
+        (p) =>
+          p.startsWith('/v1/admin') ||
+          p.startsWith('/v1/app') ||
+          p.startsWith('/v1/webhooks') ||
+          p === '/v1/tenants'
+      )
+    ).toEqual([]);
+    const ops = Object.values(res.body.paths).flatMap((item) =>
+      Object.values(item as Record<string, { operationId?: string; summary?: string }>)
+    );
+    expect(ops.filter((o) => !o.summary)).toEqual([]);
+    const ids = ops.map((o) => o.operationId);
+    expect(new Set(ids).size).toBe(ids.length);
     expect(res.body.info.description).toMatch(/x-api-key/);
     expect(res.body.info.description).toMatch(/curl -X POST/);
     expect(res.body.servers).toEqual([{ url: 'https://api.acainfe.test' }]);
+
+    const openapi = await http().get('/openapi.json').expect(200);
+    expect(openapi.headers['content-type']).toMatch(/application\/json/);
+    expect(openapi.body).toEqual(res.body);
+
+    const card = await http().get('/.well-known/mcp.json').expect(200);
+    expect(card.body).toMatchObject({
+      name: 'acainfe',
+      transport: { type: 'streamable-http', url: 'https://api.acainfe.test/mcp' },
+      authentication: { required: true, schemes: ['bearer'] },
+      openapi: 'https://api.acainfe.test/openapi.json',
+    });
+    expect(JSON.stringify(card.body)).not.toMatch(/admin|x-app-key/i);
   });
 
   it('cidades atendidas para a landing (só as liberadas, sem autenticação)', async () => {

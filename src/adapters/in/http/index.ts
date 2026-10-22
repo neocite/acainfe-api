@@ -19,6 +19,7 @@ import { ProductsController } from './products/products.controller.js';
 import { PublicAccountantPackageController } from './public/accountant-package.controller.js';
 import { PublicInvoicePdfController } from './public/invoice-pdf.controller.js';
 import { PublicPricingController } from './public/pricing.controller.js';
+import { DiscoveryController } from './discovery/discovery.controller.js';
 import { RefundsController } from './sales/refunds.controller.js';
 import { SalesController } from './sales/sales.controller.js';
 import { LogoController } from './tenants/logo.controller.js';
@@ -62,6 +63,7 @@ export const HTTP_CONTROLLERS = [
   // Público e webhooks
   PublicInvoicePdfController,
   PublicPricingController,
+  DiscoveryController,
   PublicAccountantPackageController,
   AbacatePayWebhookController,
   BillingWebhookController,
