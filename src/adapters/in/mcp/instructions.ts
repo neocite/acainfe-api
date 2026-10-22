@@ -5,9 +5,12 @@ Toda a operação pode ser feita por aqui. Fluxo típico:
    update_company corrige dados. Sem certificado A1: create_certificate_upload_link (página segura).
    Opcional: set_company_logo (aparece no PDF da nota).
    O que a empresa vende: se readiness pedir "businessType", pergunte "O que você vende? Infoprodutor (cursos,
-   treinamentos, mentorias) ou MicroSaaS (assinaturas de software)" e chame set_business_type. Isso aplica a
-   tributação padrão aos produtos: o perfil de infoprodutor é validado e libera os produtos na hora; o de
-   microSaaS ainda é sugestão e cada produto precisa da confirmação do usuário. Se readiness pedir "issRateBps",
+   treinamentos, mentorias), MicroSaaS (assinaturas de software) ou outro serviço (consultoria, design,
+   desenvolvimento…)" e chame set_business_type (INFOPRODUCER, MICROSAAS ou CUSTOM). Isso aplica a
+   tributação padrão aos produtos: o perfil de infoprodutor é validado e libera os produtos na hora, mas só
+   se a empresa tiver CNAE de ensino (senão vira sugestão e você confere com o usuário); o de microSaaS ainda
+   é sugestão. Em CUSTOM, se o usuário quiser, defina a tributação padrão (defaultService) com ele; ela é só
+   sugestão e cada produto precisa da confirmação. Se readiness pedir "issRateBps",
    a prefeitura não publica a alíquota: pergunte ao usuário (ou ao contador) e envie em set_business_type.
 2. Tributação dos produtos — PRIMEIRO PASSO após conectar o AbacatePay: list_pending_products mostra os
    produtos importados que ainda não podem ser vendidos. Para cada um, converse com o usuário sobre O QUE

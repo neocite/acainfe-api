@@ -83,10 +83,19 @@ export const CreateProductSchema = z.object({
 });
 
 export const BusinessTypeSchema = z
-  .enum(['INFOPRODUCER', 'MICROSAAS'])
+  .enum(['INFOPRODUCER', 'MICROSAAS', 'CUSTOM'])
   .describe(
-    'O que a empresa vende: INFOPRODUCER (cursos, treinamentos, mentorias) ou MICROSAAS (assinaturas de software)'
+    'O que a empresa vende: INFOPRODUCER (cursos, treinamentos, mentorias), MICROSAAS (assinaturas de software) ou CUSTOM (outro serviço: o usuário define a tributação padrão em defaultService e confirma cada produto)'
   );
+
+/** Tributação padrão da empresa ("Outro serviço"): sugestão para os produtos importados. */
+export const DefaultServiceSchema = z
+  .object({
+    taxProfile: TaxProfileSchema,
+    serviceDescription: z.string().max(2000).optional(),
+  })
+  .nullable()
+  .describe('Tributação padrão da empresa: vira sugestão em cada produto (null remove)');
 
 export const CompanyIssRateSchema = z
   .number()
@@ -244,11 +253,7 @@ export const UpdateTenantSchema = CreateTenantSchema.omit({
 })
   .partial()
   .extend({
-    defaultService: z
-      .object({ taxProfile: TaxProfileSchema, serviceDescription: z.string().optional() })
-      .nullable()
-      .optional()
-      .describe('Serviço padrão: sugestão de tributação para produtos importados (null remove)'),
+    defaultService: DefaultServiceSchema.optional(),
   });
 
 /** Controles internos da empresa: só pelo admin. */

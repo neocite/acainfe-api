@@ -16,6 +16,13 @@ describe('catálogo de códigos de serviço', () => {
     expect(catalog.find('171401')!.description).toBe('Advocacia');
     expect(catalog.find('999999')).toBeUndefined();
   });
+
+  it('acha por palavras do dia a dia que não estão no texto da LC 116', () => {
+    expect(catalog.search('design', 3)[0].nationalServiceCode).toBe('230101');
+    expect(catalog.search('UX', 3)[0].nationalServiceCode).toBe('230101');
+    expect(catalog.search('saas', 3)[0].nationalServiceCode).toBe('010501');
+    expect(catalog.search('mentoria', 3)[0].nationalServiceCode).toBe('080201');
+  });
 });
 
 describe('links assinados', () => {

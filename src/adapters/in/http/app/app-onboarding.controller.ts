@@ -22,6 +22,7 @@ import {
   CompanyIssRateSchema,
   ConnectAbacatePaySchema,
   DefaultProductSchema,
+  DefaultServiceSchema,
   RecreateWebhookSchema,
 } from '../../schemas.js';
 import { AppHeaders, AppUserGuard, CurrentUser } from '../shared/app-auth.js';
@@ -36,6 +37,7 @@ const ProfileSchema = z.object({
 
 const CompleteCompanySchema = z.object({
   businessType: BusinessTypeSchema.optional(),
+  defaultService: DefaultServiceSchema.optional(),
   approximateTaxes: z
     .object({
       rateBps: z

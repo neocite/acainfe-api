@@ -318,3 +318,93 @@ describe('Sistema de emissão por empresa', () => {
     expect(fiscalSystemFor({ ...tenant, fiscalProvider: 'GINFES' }, [])).toBe('GINFES');
   });
 });
+
+describe('Perfil coerente com os CNAEs e "Outro serviço" (configuro eu mesmo)', () => {
+  let h: ReturnType<typeof buildAppHarness>;
+  let tenant: Tenant;
+  const reload = async () => (tenant = (await h.repos.tenants.findById(tenant.id))!);
+  const setCnaes = async (codes: string[]) => {
+    await h.repos.tenants.update({
+      ...tenant,
+      cnaes: codes.map((code, i) => ({ code, description: code, primary: i === 0 })),
+    });
+    await reload();
+  };
+
+  beforeEach(async () => {
+    h = buildAppHarness();
+    tenant = (await h.onboard()).tenant;
+  });
+
+  it('infoprodutor sem CNAE de ensino: produtos entram como sugestão, com aviso', async () => {
+    await setCnaes(['6204000', '6201501', '6202300']);
+    const p = await h.products.create(tenant, { name: 'Consultoria Design', externalId: 'ux' });
+    expect(p).toMatchObject({
+      taxStatus: 'PENDING_REVIEW',
+      suggestedTaxProfile: { nationalServiceCode: '080201' },
+    });
+    const settings = await h.fiscalSettings.get(tenant);
+    expect(settings.taxDefaults).toMatchObject({
+      autoConfirm: false,
+      warning: expect.stringMatching(/Nenhum CNAE da empresa é compatível/),
+    });
+    // Com CNAE de ensino, o perfil validado volta a confirmar sozinho.
+    await setCnaes(['8599604', '6204000']);
+    const curso = await h.products.create(tenant, { name: 'Curso', externalId: 'curso' });
+    expect(curso.taxStatus).toBe('CONFIRMED');
+  });
+
+  it('só daqui pra frente: trocar o perfil não mexe em produto já confirmado', async () => {
+    const confirmed = await h.products.create(tenant, { name: 'Curso', externalId: 'curso' });
+    expect(confirmed.taxStatus).toBe('CONFIRMED');
+    await setCnaes(['6204000']);
+    await h.onboarding.completeCompany(tenant, { businessType: 'INFOPRODUCER' });
+    expect((await h.products.get(tenant.id, confirmed.id)).taxStatus).toBe('CONFIRMED');
+  });
+
+  it('"Outro serviço": sem tributação padrão, cada produto pede a sua; com ela, vira sugestão', async () => {
+    await h.onboarding.completeCompany(tenant, { businessType: 'CUSTOM' });
+    await reload();
+    expect(tenant.businessType).toBe('CUSTOM');
+    expect((await h.onboarding.status(tenant)).readiness.missing).toEqual([]);
+    await expect(h.products.create(tenant, { name: 'UX', externalId: 'ux' })).rejects.toThrow(
+      /defaultService/
+    );
+    const explicit = await h.products.create(tenant, {
+      name: 'UX',
+      externalId: 'ux',
+      taxProfile: { nationalServiceCode: '230101', nbsCode: '114093000', issRateBps: 200 },
+    });
+    expect(explicit.taxStatus).toBe('CONFIRMED');
+
+    // Importado do AbacatePay antes da tributação padrão: fica pendente, sem sugestão.
+    h.gateway.products = [
+      { id: 'prod_a', name: 'Mentoria UX', priceCents: 5000, recurring: false },
+    ];
+    await h.onboarding.connectAbacatePay(tenant, h.gateway.validKey);
+    const [pending] = (await h.products.list(tenant.id, { pendingTaxReview: true })).items;
+    expect(pending.suggestedTaxProfile).toBeUndefined();
+
+    // Tributação padrão definida pelo usuário: vira sugestão nos pendentes, nunca confirmação.
+    await h.onboarding.completeCompany(await reload(), {
+      defaultService: {
+        taxProfile: {
+          nationalServiceCode: '230101',
+          nbsCode: '114093000',
+          localServiceCode: '02501',
+          issRateBps: 200,
+        },
+      },
+    });
+    const suggested = await h.products.get(tenant.id, pending.id);
+    expect(suggested).toMatchObject({
+      taxStatus: 'PENDING_REVIEW',
+      suggestedTaxProfile: { nationalServiceCode: '230101', localServiceCode: '02501' },
+    });
+    const next = await h.products.create(await reload(), { name: 'Workshop', externalId: 'ws' });
+    expect(next).toMatchObject({
+      taxStatus: 'PENDING_REVIEW',
+      suggestedTaxProfile: { nationalServiceCode: '230101', issRateBps: 200 },
+    });
+  });
+});

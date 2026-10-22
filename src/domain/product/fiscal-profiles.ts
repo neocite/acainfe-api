@@ -1,8 +1,22 @@
 import { TaxProfile } from './tax-profile.js';
 
-/** O que a empresa vende — define o perfil fiscal padrão dos produtos. Escopo atual: só estes dois. */
-export type BusinessType = 'INFOPRODUCER' | 'MICROSAAS';
-export const BUSINESS_TYPES: BusinessType[] = ['INFOPRODUCER', 'MICROSAAS'];
+/**
+ * O que a empresa vende — define o perfil fiscal padrão dos produtos. CUSTOM = "Outro serviço /
+ * configuro eu mesmo": sem perfil pronto; a tributação padrão da empresa (defaultService) vira só
+ * sugestão e cada produto é confirmado pelo usuário.
+ */
+export type BusinessType = 'INFOPRODUCER' | 'MICROSAAS' | 'CUSTOM';
+export type ProfileBusinessType = Exclude<BusinessType, 'CUSTOM'>;
+export const BUSINESS_TYPES: BusinessType[] = ['INFOPRODUCER', 'MICROSAAS', 'CUSTOM'];
+
+export const CUSTOM_PROFILE = {
+  businessType: 'CUSTOM' as const,
+  label: 'Outro serviço (configuro eu mesmo)',
+  examples: 'Consultoria, design, desenvolvimento sob encomenda e outros serviços',
+  validated: false,
+  validationNote:
+    'Você define a tributação padrão da empresa (opcional) e confirma a de cada produto antes de vender.',
+};
 
 export interface FiscalProfileDefinition {
   businessType: BusinessType;
@@ -21,9 +35,15 @@ export interface FiscalProfileDefinition {
    */
   validated: boolean;
   validationNote: string;
+  /**
+   * Prefixos de CNAE compatíveis com o perfil. Perfil validado só confirma produtos sozinho se a
+   * empresa tiver algum desses CNAEs; senão os produtos entram como sugestão (ex.: empresa de TI
+   * que escolheu "Infoprodutor" por engano).
+   */
+  expectedCnaePrefixes: string[];
 }
 
-export const FISCAL_PROFILES: Record<BusinessType, FiscalProfileDefinition> = {
+export const FISCAL_PROFILES: Record<ProfileBusinessType, FiscalProfileDefinition> = {
   INFOPRODUCER: {
     businessType: 'INFOPRODUCER',
     label: 'Infoprodutor',
@@ -44,6 +64,8 @@ export const FISCAL_PROFILES: Record<BusinessType, FiscalProfileDefinition> = {
     validated: true,
     validationNote:
       'Validado em 19/10/2026 (mesma tributação usada nas notas autorizadas do eNotas em SBC).',
+    // Divisão 85 (educação): 8599-6/04 treinamento, 8599-6/99 outras atividades de ensino etc.
+    expectedCnaePrefixes: ['85'],
   },
   MICROSAAS: {
     businessType: 'MICROSAAS',
@@ -69,5 +91,17 @@ export const FISCAL_PROFILES: Record<BusinessType, FiscalProfileDefinition> = {
     validated: false,
     validationNote:
       'Sugestão ainda não validada por contador: o usuário confirma produto a produto antes de vender.',
+    expectedCnaePrefixes: ['6201', '6202', '6203', '6204', '6209', '6311', '6319'],
   },
 };
+
+/** A empresa tem algum CNAE compatível com o perfil? Sem CNAEs conhecidos, não bloqueia. */
+export function cnaeMatchesProfile(
+  cnaes: { code: string }[] | undefined,
+  definition: FiscalProfileDefinition
+): boolean {
+  if (!cnaes?.length) return true;
+  return cnaes.some((c) =>
+    definition.expectedCnaePrefixes.some((p) => c.code.replace(/\D/g, '').startsWith(p))
+  );
+}

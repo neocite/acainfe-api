@@ -9,6 +9,7 @@ import {
   CompanyIssRateSchema,
   ConnectAbacatePaySchema,
   DefaultProductSchema,
+  DefaultServiceSchema,
   RecreateWebhookSchema,
   NumberingSchema,
   UpdateTenantSchema,
@@ -45,10 +46,11 @@ export function registerCompanyTools(server: McpServer, c: Container, tenant: Te
     {
       title: 'Definir o que a empresa vende',
       description:
-        'Resposta de "O que você vende?": INFOPRODUCER (cursos, treinamentos, mentorias) ou MICROSAAS (assinaturas de software). Aplica a tributação padrão aos produtos pendentes. issRateBps só quando readiness pedir (prefeitura sem alíquota publicada).',
+        'Resposta de "O que você vende?": INFOPRODUCER (cursos, treinamentos, mentorias), MICROSAAS (assinaturas de software) ou CUSTOM (outro serviço, ex.: consultoria, design, desenvolvimento sob encomenda). Aplica a tributação padrão aos produtos pendentes. Em CUSTOM, informe defaultService (tributação padrão: código nacional, NBS, código municipal, ISS, IBS/CBS) se o usuário quiser; ela vira só sugestão e cada produto é confirmado com confirm_product_tax. Perfil pronto cujos CNAEs não batem com a empresa também vira sugestão (veja taxDefaults.warning em get_fiscal_settings). issRateBps só quando readiness pedir (prefeitura sem alíquota publicada).',
       inputSchema: z.object({
         businessType: BusinessTypeSchema,
         issRateBps: CompanyIssRateSchema.optional(),
+        defaultService: DefaultServiceSchema.optional(),
       }),
     },
     (input) =>
