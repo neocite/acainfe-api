@@ -22,7 +22,7 @@ export class DiscoveryController {
    * Cartão do servidor MCP (formato em discussão na comunidade MCP; não há manifesto ratificado):
    * onde fica, qual transporte e como autenticar. Nenhum segredo aqui.
    */
-  @Get('.well-known/mcp.json')
+  @Get(['.well-known/mcp.json', '.well-known/mcp/server-card.json'])
   @Header('Cache-Control', 'public, max-age=3600')
   mcpServerCard() {
     const base = (this.c.env.PUBLIC_BASE_URL ?? '').replace(/\/$/, '');
