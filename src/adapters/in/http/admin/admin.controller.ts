@@ -35,6 +35,14 @@ export class AdminController {
     return this.c.onboarding.setCoverage({ cityCode, ...parseInput(CoverageSchema, body) });
   }
 
+  @Get('activation')
+  @ApiOperation({
+    summary: 'Régua de ativação: quem parou em qual etapa do cadastro, há quanto tempo e contato',
+  })
+  activation() {
+    return this.c.activation.funnel();
+  }
+
   @Get('waitlist')
   @ApiOperation({ summary: 'Lista de espera agrupada por município (para priorizar integrações)' })
   waitlist() {

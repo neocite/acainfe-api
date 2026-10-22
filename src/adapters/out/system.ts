@@ -73,6 +73,22 @@ export class HmacDocumentLinks implements DocumentLinks {
     return expected.length === given.length && timingSafeEqual(expected, given);
   }
 
+  private unsubscribeSignature(userId: string): string {
+    return createHmac('sha256', this.secret).update(`unsub:${userId}`).digest('base64url');
+  }
+
+  unsubscribeUrl(userId: string): string | undefined {
+    if (!this.publicBaseUrl) return undefined;
+    const base = this.publicBaseUrl.replace(/\/$/, '');
+    return `${base}/v1/public/activation/unsubscribe?u=${encodeURIComponent(userId)}&sig=${this.unsubscribeSignature(userId)}`;
+  }
+
+  verifyUnsubscribe(userId: string, signature: string): boolean {
+    const expected = Buffer.from(this.unsubscribeSignature(userId));
+    const given = Buffer.from(signature ?? '');
+    return expected.length === given.length && timingSafeEqual(expected, given);
+  }
+
   pdfUrl(invoiceId: string): string | undefined {
     if (!this.publicBaseUrl) return undefined;
     return `${this.publicBaseUrl.replace(/\/$/, '')}/v1/public/invoices/${invoiceId}/pdf?sig=${this.sign(invoiceId)}`;

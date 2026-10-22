@@ -1,6 +1,7 @@
 import { Agenda } from 'agenda';
 import { Logger } from '../../../application/ports/services.js';
 import { AccountantService } from '../../../application/use-cases/accountant.service.js';
+import { ActivationService } from '../../../application/use-cases/activation.service.js';
 import { BillingService } from '../../../application/use-cases/billing.service.js';
 import { BillingInvoicingService } from '../../../application/use-cases/billing-invoicing.service.js';
 import { CertificateService } from '../../../application/use-cases/certificate.service.js';
@@ -18,6 +19,7 @@ export async function registerWorkers(
     sales: SaleService;
     billing: BillingService;
     billingInvoicing: BillingInvoicingService;
+    activation: ActivationService;
     accountant: AccountantService;
     certificates: CertificateService;
     logger: Logger;
@@ -72,6 +74,16 @@ export async function registerWorkers(
       services.logger.info('Nota mensal do açaínfe', result);
   });
 
+  agenda.define(JOBS.activationReminders, async () => {
+    const result = await services.activation.run();
+    if (result.sent) services.logger.info('Régua de ativação', result);
+  });
+
+  agenda.define(JOBS.activationDigest, async () => {
+    const result = await services.activation.digest();
+    if (result.sent) services.logger.info('Resumo de ativação enviado', result);
+  });
+
   agenda.define(JOBS.reconcile, async () => {
     const charged = await services.billing.sweepUnbilled();
     if (charged) services.logger.info('Cobranças geradas pela varredura', { charged });
@@ -93,6 +105,12 @@ export async function registerWorkers(
       timezone: 'America/Sao_Paulo',
     });
     await agenda.every('0 9 * * *', JOBS.billingDaily, undefined, {
+      timezone: 'America/Sao_Paulo',
+    });
+    await agenda.every('5 * * * *', JOBS.activationReminders, undefined, {
+      timezone: 'America/Sao_Paulo',
+    });
+    await agenda.every('0 9 * * *', JOBS.activationDigest, undefined, {
       timezone: 'America/Sao_Paulo',
     });
     await agenda.every('0 7 * * *', JOBS.billingInvoices, undefined, {

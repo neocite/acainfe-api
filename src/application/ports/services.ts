@@ -149,6 +149,8 @@ export interface DocumentLinks {
   pdfUrl(invoiceId: string): string | undefined;
   /** Link assinado (válido por ~60 dias) para baixar o pacote mensal do contador. */
   accountantPackageUrl(tenantId: string, period: string): string | undefined;
+  /** Link assinado para a pessoa parar de receber os lembretes da régua de ativação. */
+  unsubscribeUrl?(userId: string): string | undefined;
 }
 
 /** Compacta arquivos em ZIP. */

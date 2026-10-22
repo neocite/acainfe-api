@@ -668,6 +668,14 @@ export class MongoUserRepository implements UserRepository {
   async findByTenant(tenantId: string) {
     return (await this.col.find({ tenantIds: tenantId }).toArray()).map((d) => fromDoc<User>(d)!);
   }
+  async listCreatedSince(since: Date) {
+    return (
+      await this.col
+        .find({ createdAt: { $gte: since } })
+        .sort({ createdAt: 1 })
+        .toArray()
+    ).map((d) => fromDoc<User>(d)!);
+  }
 }
 
 export class MongoCoverageRepository implements CoverageRepository {

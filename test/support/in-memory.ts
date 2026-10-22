@@ -559,6 +559,9 @@ export class InMemoryUsers implements UserRepository {
   async findByTenant(tenantId: string) {
     return copy([...this.items.values()].filter((u) => u.tenantIds.includes(tenantId)));
   }
+  async listCreatedSince(since: Date) {
+    return copy([...this.items.values()].filter((u) => u.createdAt >= since));
+  }
 }
 
 export class InMemoryCoverage implements CoverageRepository {

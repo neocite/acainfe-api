@@ -170,6 +170,8 @@ export interface UserRepository {
   findById(id: string): Promise<User | null>;
   findByExternalId(externalId: string): Promise<User | null>;
   findByTenant(tenantId: string): Promise<User[]>;
+  /** Usuários cadastrados a partir da data (régua de ativação e resumo diário). */
+  listCreatedSince(since: Date): Promise<User[]>;
 }
 
 export interface CoverageRepository {

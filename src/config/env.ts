@@ -115,6 +115,16 @@ const EnvSchema = z.object({
    * `any` aceita qualquer um (só testes automatizados). CNPJs de TEST_COMPANY_CNPJS podem usar autoassinado.
    */
   CERTIFICATE_TRUST: z.enum(['icp-brasil', 'any']).default('icp-brasil'),
+  /** Régua de ativação: lembretes por WhatsApp/e-mail a quem parou no meio do cadastro. */
+  ACTIVATION_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  /** Onde o usuário continua o cadastro (link dos lembretes). */
+  APP_URL: z.string().url().default('https://acainfe.com'),
+  /** Resumo diário (9h) de quem está travado, para quem opera o açaínfe. Vazio = sem resumo. */
+  ACTIVATION_DIGEST_EMAIL: z.string().email().optional(),
+  ACTIVATION_DIGEST_WHATSAPP: z.string().optional(),
   JOBS_ENABLED: bool.default(true),
   JOBS_PROCESS_EVERY: z.string().default('5 seconds'),
 });
