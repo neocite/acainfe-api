@@ -5,7 +5,7 @@
   "description": "açaínfe — emissor de NFS-e AI-first (API REST + MCP)",
   "license": "UNLICENSED",
   "engines": {
-    "node": ">=22.12"
+    "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
   },
   "packageManager": "pnpm@10.22.0",
   "scripts": {

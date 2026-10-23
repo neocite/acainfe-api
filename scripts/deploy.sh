@@ -20,6 +20,9 @@ export NVM_DIR="$HOME/.nvm"
 # shellcheck disable=SC1091
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm use 22 >/dev/null
 node -v | grep -q '^v22' || die "Node 22 não encontrado (rode scripts/setup-server.sh)."
+# Correções de segurança de 21/10/2026 (CVE-2026-111497 "Node2Shell" e outras): exige 22.23.4+.
+node -e 'const [a,b,c]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&(b>23||(b===23&&c>=4)))?0:1)' \
+  || die "Node $(node -v) sem as correções de segurança de 21/10/2026. Atualize: sudo apt-get update && sudo apt-get install -y nodejs (precisa ser 22.23.4 ou superior)."
 corepack enable >/dev/null 2>&1 || true
 
 log "Conferindo o .env (sem exibir valores)"
