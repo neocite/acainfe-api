@@ -3,6 +3,7 @@ import forge from 'node-forge';
 import { CertificateTrust } from '../../../application/ports/services.js';
 import { DomainError } from '../../../domain/shared/domain-error.js';
 import { ICP_BRASIL_ROOTS } from './icp-brasil-roots.js';
+import { safeGet } from '../http/safe-fetcher.js';
 import { openPfx } from './pfx.js';
 
 const MAX_DEPTH = 6;
@@ -14,11 +15,12 @@ const toX509 = (cert: forge.pki.Certificate): X509Certificate =>
 /** Busca o certificado do emissor pela URL do AIA (caIssuers): .crt (DER/PEM) ou .p7b. */
 export type IssuerFetcher = (url: string) => Promise<Buffer>;
 
-const defaultFetcher: IssuerFetcher = async (url) => {
-  const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return Buffer.from(await response.arrayBuffer());
-};
+/**
+ * O endereço vem do certificado enviado (escolhido por quem envia): busca crua, sem descompactar
+ * (CVE-2026-111497) e só em endereços públicos. AIA da ICP-Brasil é http.
+ */
+const defaultFetcher: IssuerFetcher = (url) =>
+  safeGet(url, { maxBytes: 512 * 1024, timeoutMs: 10_000, allowHttp: true });
 
 /** Certificados de um .crt (DER ou PEM) ou de um pacote PKCS#7 (.p7b/.p7c). */
 export function parseIssuerBundle(data: Buffer): X509Certificate[] {
