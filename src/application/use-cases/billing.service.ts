@@ -223,6 +223,14 @@ export class BillingService {
     return payment;
   }
 
+  /** Um Pix de cobrança da empresa (para o app acompanhar até a confirmação do pagamento). */
+  async getPayment(tenantId: string, paymentId: string): Promise<BillingPayment> {
+    const payment = await this.deps.billing.findPayment(paymentId);
+    if (!payment || payment.tenantId !== tenantId)
+      throw DomainError.notFound('Pagamento', paymentId);
+    return payment;
+  }
+
   /** Webhook do gateway: Pix pago. Idempotente. */
   async confirmPayment(providerId: string, paidCents?: number): Promise<BillingPayment | null> {
     const payment = await this.deps.billing.findPaymentByProviderId(providerId);

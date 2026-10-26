@@ -193,12 +193,31 @@ describe('Cobrança interna (R$ por nota emitida)', () => {
       method: 'PIX',
       data: { amount: 160, metadata: { tenantId } },
     });
+    // O app acompanha este Pix até a confirmação (evento de compra no analytics só com PAID).
+    const paymentId = pix.body.paymentId as string;
+    expect(paymentId).toBe(pix.body.id);
+    const status = () =>
+      http()
+        .get(`/v1/billing/payments/${paymentId}`)
+        .set('x-api-key', apiKey)
+        .expect(200)
+        .then((r) => r.body);
+    expect(await status()).toMatchObject({ paymentId, status: 'PENDING', currency: 'BRL' });
+    expect((await status()).paidAmountCents).toBeUndefined();
+    await http().get('/v1/billing/payments/nao-existe').set('x-api-key', apiKey).expect(404);
 
     await pixPaid('pix_char_1', 160).set('X-Webhook-Signature', 'forjada').expect(401);
     await http().post('/v1/webhooks/billing/abacatepay?webhookSecret=errado').send({}).expect(401);
     const ok = await pixPaid('pix_char_1', 160).expect(200);
     expect(ok.body.status).toBe('PAID');
     expect(await summary()).toMatchObject({ openCents: 0, amountDueCents: 0 });
+    expect(await status()).toMatchObject({
+      paymentId,
+      status: 'PAID',
+      amountCents: 160,
+      paidAmountCents: 160,
+      paidAt: expect.any(String),
+    });
     expect((await pixPaid('pix_char_1', 160).expect(200)).body.status).toBe('PAID'); // reentrega idempotente
     expect((await pixPaid('pix_desconhecido', 100).expect(200)).body.status).toBe('IGNORED');
   });
