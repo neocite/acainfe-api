@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Post, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 import type { Container } from '../../../../config/container.js';
@@ -34,5 +34,13 @@ export class BillingController {
   @ApiOperation({ summary: 'Gera (ou reaproveita) o Pix para pagar o saldo em aberto' })
   async pay(@CurrentTenant() tenant: Tenant) {
     return toPaymentView(await this.c.billing.createPayment(tenant));
+  }
+
+  @Get('payments/:id')
+  @ApiOperation({
+    summary: 'Situação de um Pix de cobrança: PENDING, PAID (confirmado pelo gateway) ou EXPIRED',
+  })
+  async payment(@CurrentTenant() tenant: Tenant, @Param('id') id: string) {
+    return toPaymentView(await this.c.billing.getPayment(tenant.id, id));
   }
 }

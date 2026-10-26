@@ -26,4 +26,18 @@ export class AppBillingController {
     const tenant = await this.c.accounts.ownedTenant(user, tenantId);
     return toPaymentView(await this.c.billing.createPayment(tenant));
   }
+
+  @Get('companies/:tenantId/billing/payments/:paymentId')
+  @ApiOperation({
+    summary:
+      'Situação de um Pix de cobrança: PENDING, PAID (confirmado pelo gateway), EXPIRED. Para acompanhar até o pagamento',
+  })
+  async payment(
+    @CurrentUser() user: User,
+    @Param('tenantId') tenantId: string,
+    @Param('paymentId') paymentId: string
+  ) {
+    const tenant = await this.c.accounts.ownedTenant(user, tenantId);
+    return toPaymentView(await this.c.billing.getPayment(tenant.id, paymentId));
+  }
 }

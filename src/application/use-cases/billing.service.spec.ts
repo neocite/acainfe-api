@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { toPaymentView } from '../../adapters/in/http/billing/payment-view.js';
 import { buildAppHarness } from '../../../test/support/app-harness.js';
 
 const DAY = 86_400_000;
@@ -188,5 +189,31 @@ describe('formatCellphone', () => {
     const { formatCellphone } = await import('./billing.service.js');
     expect(formatCellphone('5511988887777')).toBe('(11) 98888-7777');
     expect(formatCellphone('1140028922')).toBe('(11) 4002-8922');
+  });
+});
+
+describe('visão do Pix de cobrança', () => {
+  it('pendente com prazo vencido aparece como EXPIRED; pago traz o valor efetivo', () => {
+    const base = {
+      id: 'pay_1',
+      tenantId: 't',
+      amountCents: 160,
+      chargeIds: [],
+      provider: 'ABACATEPAY' as const,
+      createdAt: new Date('2026-10-26T10:00:00Z'),
+      expiresAt: new Date('2026-10-26T12:00:00Z'),
+    };
+    const now = new Date('2026-10-26T13:00:00Z');
+    expect(toPaymentView({ ...base, status: 'PENDING' }, now)).toMatchObject({
+      paymentId: 'pay_1',
+      status: 'EXPIRED',
+      paidAmountCents: undefined,
+    });
+    expect(
+      toPaymentView({ ...base, status: 'PENDING' }, new Date('2026-10-26T11:00:00Z')).status
+    ).toBe('PENDING');
+    expect(
+      toPaymentView({ ...base, status: 'PAID', paidAmountCents: 200, paidAt: now }, now)
+    ).toMatchObject({ status: 'PAID', paidAmountCents: 200, currency: 'BRL' });
   });
 });
