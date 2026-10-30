@@ -3,7 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "description": "açaínfe — emissor de NFS-e AI-first (API REST + MCP)",
-  "license": "UNLICENSED",
+  "homepage": "https://acainfe.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/extractify/acainfe-api.git"
+  },
+  "bugs": {
+    "url": "https://github.com/extractify/acainfe-api/issues"
+  },
+  "author": "EXTRACTIFY TECNOLOGIA LTDA <contato@extractify.com.br>",
+  "license": "AGPL-3.0-only",
   "engines": {
     "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
   },

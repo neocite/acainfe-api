@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Vulnerabilidade de segurança
+    url: https://github.com/extractify/acainfe-api/security/policy
+    about: Não abra issue pública. Reporte em privado seguindo a política de segurança.
+  - name: Dúvidas sobre uso do açaínfe (clientes)
+    url: https://acainfe.com
+    about: Suporte ao produto hospedado pelo e-mail contato@extractify.com.br.
