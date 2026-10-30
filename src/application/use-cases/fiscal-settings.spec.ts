@@ -59,7 +59,7 @@ describe('Ficha fiscal da empresa', () => {
     await h.repos.tenants.update({
       ...tenant,
       accountant: {
-        name: 'Edmara',
+        name: 'Joana',
         email: 'fiscal@contabilidade.com',
         whatsapp: '5511999990000',
         monthlyReport: true,
@@ -73,7 +73,7 @@ describe('Ficha fiscal da empresa', () => {
     });
     const mail = h.email.sent.at(-1)!;
     expect(mail.subject).toContain('Configuração fiscal');
-    expect(mail.text).toContain('Olá, Edmara!');
+    expect(mail.text).toContain('Olá, Joana!');
     expect(mail.text).toContain('FICHA FISCAL');
   });
 });

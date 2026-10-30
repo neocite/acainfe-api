@@ -1,0 +1,19 @@
+name: Sugestão
+description: Nova prefeitura, gateway, ferramenta MCP ou melhoria
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Qual problema isso resolve
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposta
+      description: 'Se for uma prefeitura nova, informe o código IBGE, o sistema usado (ex.: ABRASF, Betha, IPM) e links da documentação.'
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas

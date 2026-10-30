@@ -71,7 +71,7 @@ describe('Ginfes (São Bernardo do Campo) com modo piloto', () => {
 
   it('nota espera aprovação; com a prévia conferida, emite pelo Ginfes', async () => {
     const id = await sale('pix_jely_1', {
-      name: 'Cristiano Olsen',
+      name: 'Bruno Lima',
       address: {
         street: 'R. Luiz Pereira Barreto',
         number: '1248',
@@ -138,7 +138,7 @@ describe('Ginfes (São Bernardo do Campo) com modo piloto', () => {
       expect.objectContaining({
         number: '1001',
         amountCents: 3500,
-        customerName: 'Cristiano Olsen',
+        customerName: 'Bruno Lima',
       }),
     ]);
   });

@@ -1,0 +1,48 @@
+name: Bug
+description: Algo não funciona como deveria
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por reportar! **Não cole dados reais**: CPF/CNPJ de clientes, certificados, senhas, API keys ou XML de notas sem anonimizar.
+  - type: textarea
+    id: what
+    attributes:
+      label: O que aconteceu
+      description: E o que você esperava que acontecesse.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Como reproduzir
+      placeholder: |
+        1. POST /v1/sales com ...
+        2. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: system
+    attributes:
+      label: Sistema fiscal envolvido
+      options:
+        - Emissor Nacional (Sefin/ADN)
+        - Ginfes (São Bernardo do Campo)
+        - NFS-e Paulistana (São Paulo)
+        - Nenhum / não sei
+  - type: input
+    id: error
+    attributes:
+      label: Código de erro ou rejeição
+      placeholder: 'ex.: E0039, AWAITING_MUNICIPALITY'
+  - type: input
+    id: version
+    attributes:
+      label: Versão (commit) e Node
+      placeholder: 'ex.: fec1d28, Node 22.23.4'
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (anonimizados)
+      render: text

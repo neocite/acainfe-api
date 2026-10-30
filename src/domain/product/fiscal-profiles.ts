@@ -83,7 +83,7 @@ export const FISCAL_PROFILES: Record<ProfileBusinessType, FiscalProfileDefinitio
       ibsCbs: { cst: '000', cClassTrib: '000001', operationIndicator: '100501' },
     },
     localServiceCodes: {
-      // Validado pela contabilidade (Tactus) para a nota de uso do açaínfe em 20/10/2026.
+      // Validado pela contabilidade para a nota de uso do açaínfe em 20/10/2026.
       '3548708': '1.05/102313/1234',
       // São Paulo: 02800 licenciamento ou cessão de direito de uso de programas de computação (1.05).
       '3550308': '02800',

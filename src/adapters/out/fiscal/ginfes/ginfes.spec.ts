@@ -42,7 +42,7 @@ const invoice = makeInvoice({
   serviceDescription: 'Venda espaço Jely',
   dps: { series: '900', number: 2, id: 'x' },
   customer: {
-    name: 'Cristiano Olsen',
+    name: 'Bruno Lima',
     address: {
       street: 'R. Luiz Pereira Barreto',
       number: '1248',
@@ -88,7 +88,7 @@ const verify = (xml: string): boolean => {
 };
 
 const compNfse = (opts: { number?: string; amount?: string; doc?: string } = {}) =>
-  `<ns4:CompNfse xmlns:ns4="http://www.ginfes.com.br/tipos_v03.xsd"><ns4:Nfse><ns4:InfNfse><ns4:Numero>${opts.number ?? '4521'}</ns4:Numero><ns4:CodigoVerificacao>AB12CD34E</ns4:CodigoVerificacao><ns4:DataEmissao>2026-10-19T10:15:00</ns4:DataEmissao><ns4:IdentificacaoRps><ns4:Numero>2</ns4:Numero><ns4:Serie>900</ns4:Serie><ns4:Tipo>1</ns4:Tipo></ns4:IdentificacaoRps><ns4:Servico><ns4:Valores><ns4:ValorServicos>${opts.amount ?? '35.00'}</ns4:ValorServicos><ns4:Aliquota>0.0201</ns4:Aliquota></ns4:Valores><ns4:ItemListaServico>08.02</ns4:ItemListaServico><ns4:CodigoTributacaoMunicipio>8.02/103911/1551</ns4:CodigoTributacaoMunicipio><ns4:Discriminacao>Venda espaço Jely</ns4:Discriminacao></ns4:Servico><ns4:TomadorServico>${opts.doc ? `<ns4:IdentificacaoTomador><ns4:CpfCnpj><ns4:Cpf>${opts.doc}</ns4:Cpf></ns4:CpfCnpj></ns4:IdentificacaoTomador>` : ''}<ns4:RazaoSocial>Cristiano Olsen</ns4:RazaoSocial></ns4:TomadorServico></ns4:InfNfse></ns4:Nfse></ns4:CompNfse>`;
+  `<ns4:CompNfse xmlns:ns4="http://www.ginfes.com.br/tipos_v03.xsd"><ns4:Nfse><ns4:InfNfse><ns4:Numero>${opts.number ?? '4521'}</ns4:Numero><ns4:CodigoVerificacao>AB12CD34E</ns4:CodigoVerificacao><ns4:DataEmissao>2026-10-19T10:15:00</ns4:DataEmissao><ns4:IdentificacaoRps><ns4:Numero>2</ns4:Numero><ns4:Serie>900</ns4:Serie><ns4:Tipo>1</ns4:Tipo></ns4:IdentificacaoRps><ns4:Servico><ns4:Valores><ns4:ValorServicos>${opts.amount ?? '35.00'}</ns4:ValorServicos><ns4:Aliquota>0.0201</ns4:Aliquota></ns4:Valores><ns4:ItemListaServico>08.02</ns4:ItemListaServico><ns4:CodigoTributacaoMunicipio>8.02/103911/1551</ns4:CodigoTributacaoMunicipio><ns4:Discriminacao>Venda espaço Jely</ns4:Discriminacao></ns4:Servico><ns4:TomadorServico>${opts.doc ? `<ns4:IdentificacaoTomador><ns4:CpfCnpj><ns4:Cpf>${opts.doc}</ns4:Cpf></ns4:CpfCnpj></ns4:IdentificacaoTomador>` : ''}<ns4:RazaoSocial>Bruno Lima</ns4:RazaoSocial></ns4:TomadorServico></ns4:InfNfse></ns4:Nfse></ns4:CompNfse>`;
 
 const errorReply = (root: string, code: string, msg: string) =>
   `<ns3:${root} xmlns:ns3="x" xmlns:ns4="y"><ns3:ListaMensagemRetorno><ns4:MensagemRetorno><ns4:Codigo>${code}</ns4:Codigo><ns4:Mensagem>${msg}</ns4:Mensagem></ns4:MensagemRetorno></ns3:ListaMensagemRetorno></ns3:${root}>`;
@@ -583,7 +583,7 @@ describe('GinfesFiscalProvider', () => {
       '4521',
       new Date('2026-10-19T15:00:00Z')
     );
-    expect(viaDay).toMatchObject({ number: '4521', customerName: 'Cristiano Olsen' });
+    expect(viaDay).toMatchObject({ number: '4521', customerName: 'Bruno Lima' });
     expect(byDay.calls[0].args[1]).toContain(
       '<PeriodoEmissao><DataInicial>2026-10-19</DataInicial><DataFinal>2026-10-19</DataFinal>'
     );

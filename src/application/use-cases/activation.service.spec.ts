@@ -84,8 +84,8 @@ describe('ActivationService', () => {
       config: {
         enabled: true,
         appUrl: 'https://acainfe.com',
-        digestEmail: 'paulo@extractify.com.br',
-        digestWhatsapp: '5511945817955',
+        digestEmail: 'operacao@exemplo.com',
+        digestWhatsapp: '5511900000001',
         lookbackDays: 30,
       },
     });
@@ -153,13 +153,13 @@ describe('ActivationService', () => {
     expect(await service.digest()).toEqual({ stuck: 1, sent: true });
     const email = h.email.sent.at(-1)!;
     expect(email).toMatchObject({
-      to: 'paulo@extractify.com.br',
+      to: 'operacao@exemplo.com',
       subject: 'açaínfe: 1 cadastro(s) travado(s)',
     });
     expect(email.text).toContain('Ana Souza');
     expect(email.text).toContain('Conta criada, sem certificado há 2 dias');
     expect(email.text).toContain('+5511988887777');
-    expect(h.whatsapp.texts.at(-1)!.phone).toBe('5511945817955');
+    expect(h.whatsapp.texts.at(-1)!.phone).toBe('5511900000001');
   });
 
   it('link de descadastro é assinado por usuário', () => {

@@ -1,5 +1,13 @@
 # açaínfe — API
 
+[![CI](https://github.com/extractify/acainfe-api/actions/workflows/ci.yml/badge.svg)](https://github.com/extractify/acainfe-api/actions/workflows/ci.yml)
+[![Licença: AGPL-3.0](https://img.shields.io/badge/licen%C3%A7a-AGPL--3.0-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%E2%89%A522.23.4-339933.svg)](.nvmrc)
+
+> **English:** open-source, AI-first issuer of Brazilian service invoices (NFS-e). Every paid sale becomes an invoice automatically, and the whole operation is available to AI agents over MCP. Docs are in Portuguese because the domain (Brazilian tax law) is.
+
+Front-end e onboarding: [neocite/acainfe-front](https://github.com/neocite/acainfe-front) · Produto: [açaínfe.com](https://acainfe.com) · [Como contribuir](CONTRIBUTING.md) · [Segurança](SECURITY.md)
+
 > Marca: **açaínfe** (domínio `açaínfe.com`). Internamente o projeto se chama **acainfe** (pacote, banco, fila, prefixo das API keys `acai_`).
 > Em URLs, DNS, certificados TLS e e-mail use a forma punycode do domínio: **`xn--aanfe-yra7b.com`**.
 
@@ -89,10 +97,10 @@ Produtos que ficam sem tributação confirmada (perfil não validado, ou empresa
 
 A resposta de "O que você vende?" define a tributação padrão dos produtos (`src/domain/product/fiscal-profiles.ts`):
 
-| `businessType` | cTribNac | Código local | NBS | IBS/CBS (CST / cClassTrib / cIndOp) | Situação |
-| --- | --- | --- | --- | --- | --- |
-| `INFOPRODUCER` (cursos, treinamentos, mentorias) | 080201 | 8.02/103911/1551 | 122051900 | 000 / 000001 / 100301 | Validado em 19/10/2026: confirma direto (`via: 'PROFILE'`) |
-| `MICROSAAS` (assinaturas de software) | 010501 | — | 115062100 (SaaS) | 000 / 000001 / 100501 | **Não validado**: só sugestão; o usuário confirma cada produto |
+| `businessType`                                   | cTribNac | Código local     | NBS              | IBS/CBS (CST / cClassTrib / cIndOp) | Situação                                                       |
+| ------------------------------------------------ | -------- | ---------------- | ---------------- | ----------------------------------- | -------------------------------------------------------------- |
+| `INFOPRODUCER` (cursos, treinamentos, mentorias) | 080201   | 8.02/103911/1551 | 122051900        | 000 / 000001 / 100301               | Validado em 19/10/2026: confirma direto (`via: 'PROFILE'`)     |
+| `MICROSAAS` (assinaturas de software)            | 010501   | —                | 115062100 (SaaS) | 000 / 000001 / 100501               | **Não validado**: só sugestão; o usuário confirma cada produto |
 
 - **Onde é aplicado:** na importação do AbacatePay, ao responder a pergunta (produtos pendentes) e na criação manual sem `taxProfile` (REST, MCP e app).
 - **Alíquota de ISS:** não fica fixa no perfil. No Simples é estimada pela parcela do ISS no Anexo III (6% × 33,5% = 2,01% → `201`), limitada a 2%–5%. Fora do Simples vem da parametrização da prefeitura (ADN); se ela não publicar, `readiness.missing` pede `issRateBps`. No DPS ela só é enviada (`pAliq`) quando o ISS é retido.
@@ -140,6 +148,16 @@ As ME/EPP da capital emitem pelo web service da prefeitura (NFS-e Paulistana) at
 - **Virada para o nacional:** `PAULISTANA_CITIES=none`, ou `fiscalProvider: NACIONAL` por empresa.
 - **Consultas e cruzamento:** `get_municipal_invoice` e `list_municipal_invoices` usam `ConsultaNFe` e `ConsultaNFeEmitidas` (janelas de 31 dias, páginas de 50). O cruzamento de vendas antigas funciona igual ao do Ginfes.
 - **Cancelamento:** `CancelamentoNFe`, que só cancela notas geradas via web service (erro 1306).
+
+### Virada para o Emissor Nacional (01/11/2026)
+
+A Resolução CGSN 191/2026 obriga o Simples Nacional (ME/EPP) a emitir pelo Emissor Nacional a partir de 01/11/2026. Nas cidades que usam o sistema da prefeitura (`GINFES_CITIES`, `PAULISTANA_CITIES`), a troca é automática e pela **competência da nota** (`MUNICIPAL_SYSTEMS_CUTOVER`):
+
+- **Competência até 31/10:** sistema da prefeitura (Ginfes ou NFS-e Paulistana), como emissão retroativa. Inclui a nota mensal de uso de outubro, emitida em 01/11.
+- **Competência a partir de 01/11:** Emissor Nacional.
+- **Nota já emitida:** cancelamento, consulta e reprocessamento vão para o sistema que a emitiu (`nfse.provider`). Uma nota que já recebeu envio guarda o sistema em `fiscalSystem`.
+- **Aprovação manual no início:** as primeiras `NACIONAL_PILOT_NOTES` (3) notas pelo nacional de cada empresa dessas cidades esperam aprovação (`AWAITING_APPROVAL`, com `preview_invoice` e `approve_invoice`).
+- **Prefeitura atrasada:** se a Sefin recusar com E0039 ("município não usa o emissor nacional") depois da virada, a nota fica `RETRYING` com `AWAITING_MUNICIPALITY` e é reenviada a cada hora, sem gastar tentativas.
 
 ### Homologação × produção
 
@@ -198,7 +216,7 @@ Para o AbacatePay, chame `POST /v1/tenants/me/integrations/abacatepay`. A respos
   - **MCP:** `get_billing`, `list_billing_charges`, `pay_billing`.
   - **App:** `/v1/app/companies/:id/billing`.
   - **Landing:** `GET /v1/public/pricing`.
-- **Nota mensal do uso (receita do açaínfe):** a empresa que opera o açaínfe (`BILLING_INVOICE_ISSUER_CNPJ`) emite **uma NFS-e por cliente e mês**, com o total das notas emitidas no mês anterior. Regra validada pela contabilidade (Tactus).
+- **Nota mensal do uso (receita do açaínfe):** a empresa que opera o açaínfe (`BILLING_INVOICE_ISSUER_CNPJ`) emite **uma NFS-e por cliente e mês**, com o total das notas emitidas no mês anterior. Regra validada pela contabilidade.
   - **O que entra no valor:** cobranças pagas ou em aberto. Notas canceladas depois também contam. Cobranças dispensadas (`WAIVED`) e de valor zero ficam de fora.
   - **Quando e com que dados:** o job `billing-monthly-invoices` roda todo dia às 7h e fecha o mês anterior, com competência no mês do uso. A nota usa o produto `BILLING_INVOICE_PRODUCT_EXTERNAL_ID` (item 1.05, NBS 1.1103.29.00, código SBC 1.05/102313/1234, ISS 2,01%, IBPT 15,56%), e o cliente (CNPJ, razão social, e-mail, endereço) é o tomador.
   - **Duplicidade:** a venda tem origem `ACAINFE_BILLING` e id `billing_<AAAA-MM>_<tenantId>`. Rodar de novo não duplica.
@@ -285,12 +303,12 @@ Com produto padrão, **todo** Pix sem produto vira nota, inclusive testes. Por i
 
 Lembra, por WhatsApp e e-mail, quem parou no meio do cadastro. O job roda de hora em hora, só entre 9h e 20h de Brasília.
 
-| Etapa | Lembretes (a partir do início da etapa) |
-|---|---|
-| Conta criada, sem certificado | 1h, 24h e 72h |
-| Certificado enviado, sem AbacatePay | 24h e 72h |
-| Produtos aguardando tributação | 24h e 72h |
-| Tudo pronto, sem nenhuma nota | 7 dias |
+| Etapa                               | Lembretes (a partir do início da etapa) |
+| ----------------------------------- | --------------------------------------- |
+| Conta criada, sem certificado       | 1h, 24h e 72h                           |
+| Certificado enviado, sem AbacatePay | 24h e 72h                               |
+| Produtos aguardando tributação      | 24h e 72h                               |
+| Tudo pronto, sem nenhuma nota       | 7 dias                                  |
 
 - **Quando para:** quando a etapa é concluída, quando a empresa emite a primeira nota ou quando a pessoa clica em "não quero mais receber" (link assinado, `GET /v1/public/activation/unsubscribe`). Empresas na lista de espera não recebem lembrete: o aviso de liberação da cidade já existe.
 - **Sem rajada:** se vários lembretes vencerem juntos (por exemplo, com o servidor parado), só o mais recente é enviado. Os envios ficam registrados no usuário.
@@ -348,17 +366,15 @@ Os XSDs oficiais do leiaute nacional (pacote `NFSe-ESQUEMAS_XSD-v1.01-20260209`)
 
 ## Pendências conhecidas e pontos a validar em homologação
 
-- **Ainda não testado contra a Sefin real.** Precisa de um certificado A1 de um CNPJ de SBC habilitado no Sistema Nacional (produção restrita).
+- **Emissor Nacional para cidades com sistema próprio (SBC, SP) ainda sem nota real em produção:** as primeiras notas de cada empresa passam por aprovação manual (`NACIONAL_PILOT_NOTES`).
 - **Pontos não confirmados na documentação oficial:**
   - se `GET /dps/{id}` usa o Id completo (com prefixo `DPS`);
   - o formato da competência na parametrização da ADN;
   - se SBC exige `IM` no DPS (configurável por empresa em `sendMunicipalRegistration`).
-- **Ginfes (SBC, Lucro Presumido/Real) não implementado.** A porta `FiscalProviderResolver` já está pronta para o segundo adapter.
 - **Exportação de serviço:** os valores padrão do `comExt` (transfronteiriço, moeda 790/Real, sem fomento, sem envio ao MDIC) e a regra "tomador no exterior = exportação" precisam ser validados com um contador e em homologação.
 - **`pTotTribSN`:** usa o percentual aproximado do IBPT configurado na empresa (`approximateTaxes.rateBps`; contabilidade, 19/10/2026: 15,53% para serviços). Sem configuração, cai na alíquota estimada do Simples.
 - **Retenções federais** (IRRF/CSLL/PIS/COFINS/INSS) ainda não entram no DPS. A emissão é recusada localmente com mensagem clara.
 - **DANFSe** segue os elementos da NT 008/2026 (chave, QR Code, tarja de cancelada), mas não reproduz o leiaute oficial pixel a pixel.
-- **Ginfes, ainda não testado contra a prefeitura real:** o WSDL só abre com o certificado; falta confirmar se SBC aceita o cancelamento v3 e quanto o lote demora para processar. Comece pelo modo piloto e por `list_municipal_invoices`.
 - **Perfil microSaaS** (010501 / NBS 115062100 / cIndOp 100501) precisa de validação de um contador. O cIndOp 100501 é o que a tabela oficial associa ao 01.05, mas é incomum com NBS de serviço. A alternativa seria 010302 (hospedagem) com 100301.
 - **ISS estimado no Simples** usa a parcela da 1ª faixa do Anexo III (33,5%). Em outras faixas ou no Anexo V (Fator R abaixo de 28%, comum em software) a parcela é outra; o usuário pode informar `issRateBps`.
 - **IBS/CBS:** obrigatório para o Simples a partir de 01/01/2027. Hoje, venda para consumidor sem CPF/CNPJ sai sem tomador e sem o grupo IBS/CBS, porque o cIndOp 100301 exige o endereço do tomador (E0234). A partir de 2027 será preciso coletar o CPF nessas vendas.
@@ -369,3 +385,17 @@ Os XSDs oficiais do leiaute nacional (pacote `NFSe-ESQUEMAS_XSD-v1.01-20260209`)
 - **Autenticação do MCP** é por API key. OAuth 2.1 fica para depois.
 - **Regime tributário:** a BrasilAPI só informa Simples/MEI. Para as demais empresas o regime fica como Lucro Presumido, e o usuário corrige na etapa 3 se for Lucro Real.
 - **Link de upload do certificado** expira em 30 min, mas pode ser usado mais de uma vez dentro desse prazo.
+
+## Contribuindo
+
+Contribuições são bem-vindas: correções, novas prefeituras, novos gateways de pagamento, melhorias nas dicas de rejeição. Leia o [CONTRIBUTING.md](CONTRIBUTING.md) antes de abrir um PR e siga o [Código de Conduta](CODE_OF_CONDUCT.md).
+
+Encontrou uma vulnerabilidade? **Não abra issue pública:** siga a [política de segurança](SECURITY.md).
+
+## Licença
+
+[GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only). Copyright (C) 2026 EXTRACTIFY TECNOLOGIA LTDA.
+
+Em resumo: você pode usar, estudar, modificar e redistribuir. Se oferecer uma versão modificada como serviço pela rede, precisa disponibilizar o código-fonte dessa versão aos usuários sob a mesma licença.
+
+O nome **açaínfe**, o logotipo e a identidade visual são marcas da EXTRACTIFY e não são licenciados pela AGPL. Forks publicados ou hospedados precisam usar outro nome e outra marca.

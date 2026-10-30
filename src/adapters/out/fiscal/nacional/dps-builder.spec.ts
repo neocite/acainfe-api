@@ -201,7 +201,7 @@ describe('tomador no exterior e tributos aproximados', () => {
       zipCode: '16015445',
     };
     const anonymous = buildDpsXml(
-      makeInvoice({ customer: { name: 'Cristiano', address }, taxProfile }),
+      makeInvoice({ customer: { name: 'Bruno', address }, taxProfile }),
       makeTenant(),
       opts
     );
@@ -211,7 +211,7 @@ describe('tomador no exterior e tributos aproximados', () => {
 
     const identified = buildDpsXml(
       makeInvoice({
-        customer: { name: 'Cristiano', taxId: { kind: 'CPF', value: '52998224725' }, address },
+        customer: { name: 'Bruno', taxId: { kind: 'CPF', value: '52998224725' }, address },
         taxProfile,
       }),
       makeTenant(),

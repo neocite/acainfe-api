@@ -37,8 +37,8 @@ describe('planilha do contador (layout eNotas)', () => {
           taxProfile: profile,
           serviceDescription: 'Filtripack Class;\nValor aprox',
           customer: {
-            name: 'ERIKA',
-            taxId: { kind: 'CPF', value: '78820898187' },
+            name: 'MARIA TESTE',
+            taxId: { kind: 'CPF', value: '52998224725' },
             email: 'e@x.com',
             phone: '5566999796518',
           },
@@ -51,7 +51,7 @@ describe('planilha do contador (layout eNotas)', () => {
           nfse: { ...issued, number: '48707' },
           amountCents: 9700,
           taxProfile: profile,
-          customer: { name: 'Ronye', taxId: { kind: 'CNPJ', value: '30675141000175' } },
+          customer: { name: 'Loja Exemplo', taxId: { kind: 'CNPJ', value: '11444777000161' } },
         }),
       },
       {
@@ -81,10 +81,10 @@ describe('planilha do contador (layout eNotas)', () => {
     const lines = csv.slice(1).trim().split('\r\n');
     expect(lines[0]).toBe(ENOTAS_HEADER);
     const first = lines[1].split(';');
-    expect(first.slice(0, 4)).toEqual(['Ronye', '', '30.675.141/0001-75', '']);
+    expect(first.slice(0, 4)).toEqual(['Loja Exemplo', '', '11.444.777/0001-61', '']);
     expect(first[14]).toBe('PJ');
     expect(lines[1]).toContain(';Cancelada;');
-    expect(lines[2]).toContain('ERIKA;;788.208.981-87;e@x.com');
+    expect(lines[2]).toContain('MARIA TESTE;;529.982.247-25;e@x.com');
     expect(lines[2]).toContain(';66999796518;PF;');
     expect(lines[2]).toContain(
       ';197,00;;8.02/103911/1551;8.02;0.00;0.00;0.00;0.00;0.00;3.96;2.01;Não;"Filtripack Class;\nValor aprox";48714;;Autorizada;17-10-2026 19:43;'
