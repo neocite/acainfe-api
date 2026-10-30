@@ -1,5 +1,6 @@
 import {
   AWAITING_APPROVAL,
+  AWAITING_MUNICIPALITY,
   buildDpsId,
   DeliveryChannel,
   DPS_NUMBER_CONFLICT,
@@ -20,8 +21,9 @@ import {
 } from '../../domain/invoice/invoice.js';
 import { DomainError } from '../../domain/shared/domain-error.js';
 import { formatBRL } from '../../domain/shared/money.js';
-import { Tenant } from '../../domain/tenant/tenant.js';
+import { FiscalSystem, Tenant } from '../../domain/tenant/tenant.js';
 import {
+  FiscalProvider,
   FiscalProviderResolver,
   FiscalProviderUnavailableError,
 } from '../ports/fiscal-provider.js';
@@ -65,6 +67,12 @@ export class InvoiceService {
       /** Pausa por inadimplência (cobrança interna do açaínfe). */
       billing: { isBlocked(tenantId: string): Promise<boolean> };
       providers: FiscalProviderResolver;
+      /**
+       * Virada para o Emissor Nacional: as primeiras `notes` notas pelo nacional de empresas desses
+       * municípios esperam aprovação; e, a partir de `cutover`, a recusa E0039 ("município não usa o
+       * emissor nacional") deixa a nota aguardando a prefeitura em vez de rejeitá-la.
+       */
+      nacionalTransition?: { notes: number; cities: string[]; cutover?: string };
       scheduler: JobScheduler;
       renderer: DanfseRenderer;
       email: EmailSender;
@@ -156,19 +164,15 @@ export class InvoiceService {
 
     const tenant = await this.deps.tenants.findById(current.tenantId);
     if (!tenant) throw DomainError.notFound('Empresa', current.tenantId);
-    const provider = this.deps.providers.resolve(tenant);
-    if (provider.requiresApproval && !current.approval) {
+    const provider = this.providerFor(current, tenant);
+    const approvalReason = current.approval ? null : await this.approvalReason(provider, tenant);
+    if (approvalReason) {
       // Modo piloto: espera o usuário conferir a prévia (preview_invoice) e liberar (approve_invoice).
       if (current.lastErrors?.[0]?.code !== AWAITING_APPROVAL) {
         await this.deps.invoices.updateIfStatus(
           {
             ...current,
-            lastErrors: [
-              {
-                code: AWAITING_APPROVAL,
-                message: `Integração ${provider.name} em modo piloto: confira a prévia da nota e aprove o envio à prefeitura.`,
-              },
-            ],
+            lastErrors: [{ code: AWAITING_APPROVAL, message: approvalReason }],
             history: [...current.history, { at: now, event: AWAITING_APPROVAL }].slice(-100),
             updatedAt: now,
           },
@@ -178,7 +182,14 @@ export class InvoiceService {
       return current;
     }
 
-    const processing = startProcessing(current, now);
+    const processing: Invoice = {
+      ...startProcessing(current, now),
+      // O sistema que recebe o envio fica gravado: consultas e reenvios vão sempre para ele.
+      fiscalSystem:
+        current.sentToProvider && current.fiscalSystem
+          ? current.fiscalSystem
+          : (provider.name as FiscalSystem),
+    };
     if (!(await this.deps.invoices.updateIfStatus(processing, current.status))) return null; // outro worker pegou
 
     let material;
@@ -228,6 +239,9 @@ export class InvoiceService {
         }
         return this.onTransient(processing, 'DPS duplicado ainda não disponível para consulta');
       }
+      if (this.awaitingMunicipality(provider, processing, outcome.errors)) {
+        return this.parkUntilMunicipality(processing, outcome.errors);
+      }
       return this.persist(markRejected(processing, outcome.errors, this.deps.clock.now()));
     } catch (error) {
       const reason =
@@ -239,6 +253,85 @@ export class InvoiceService {
       }
       return this.onTransient(processing, reason);
     }
+  }
+
+  /** Emissor da nota: o que a emitiu/recebeu o envio ou, para nota nova, o da competência. */
+  private providerFor(invoice: Invoice, tenant: Tenant): FiscalProvider {
+    return this.deps.providers.forInvoice?.(invoice, tenant) ?? this.deps.providers.resolve(tenant);
+  }
+
+  /** Por que a nota precisa de aprovação antes do envio (null = não precisa). */
+  private async approvalReason(provider: FiscalProvider, tenant: Tenant): Promise<string | null> {
+    if (provider.requiresApproval) {
+      return `Integração ${provider.name} em modo piloto: confira a prévia da nota e aprove o envio à prefeitura.`;
+    }
+    const transition = this.deps.nacionalTransition;
+    if (
+      provider.name !== 'NACIONAL' ||
+      !transition?.notes ||
+      !transition.cities.includes(tenant.cityCode) ||
+      tenant.taxRegime === 'MEI'
+    ) {
+      return null;
+    }
+    const issued = await this.deps.invoices.list(tenant.id, {
+      status: ['ISSUED', 'CANCELLED'],
+      pageSize: 100,
+    });
+    const count = issued.items.filter(
+      (i) => (i.nfse?.provider ?? 'NACIONAL') === 'NACIONAL'
+    ).length;
+    if (count >= transition.notes) return null;
+    return `Primeiras notas pelo Emissor Nacional (a prefeitura migrou para o padrão nacional): confira a prévia e aprove o envio (${count + 1} de ${transition.notes}).`;
+  }
+
+  /** Recusa E0039 depois da virada: a prefeitura ainda não liberou o emissor nacional para o Simples. */
+  private awaitingMunicipality(
+    provider: FiscalProvider,
+    invoice: Invoice,
+    errors: FiscalError[]
+  ): boolean {
+    const cutover = this.deps.nacionalTransition?.cutover;
+    if (provider.name !== 'NACIONAL' || !cutover) return false;
+    const competence = new Date(invoice.competenceDate.getTime() - 3 * 3_600_000)
+      .toISOString()
+      .slice(0, 10);
+    return competence >= cutover && errors.some((e) => e.code === 'E0039');
+  }
+
+  /** Aguarda a prefeitura (tenta de novo em 1 hora) sem gastar as tentativas da nota. */
+  private async parkUntilMunicipality(
+    processing: Invoice,
+    errors: FiscalError[]
+  ): Promise<Invoice> {
+    const now = this.deps.clock.now();
+    const next = new Date(now.getTime() + 3_600_000);
+    const parked: Invoice = {
+      ...processing,
+      status: 'RETRYING',
+      attempts: Math.max(0, processing.attempts - 1),
+      nextAttemptAt: next,
+      lastErrors: [
+        {
+          code: AWAITING_MUNICIPALITY,
+          message:
+            'A prefeitura ainda não liberou o Emissor Nacional para a empresa. A nota será enviada de novo automaticamente a cada hora.',
+          complement: errors.map((e) => `${e.code} ${e.message}`).join(' | '),
+        },
+      ],
+      history: [
+        ...processing.history,
+        { at: now, event: AWAITING_MUNICIPALITY, message: 'E0039: nova tentativa em 1 hora' },
+      ].slice(-100),
+      updatedAt: now,
+    };
+    await this.persist(parked);
+    this.deps.logger.warn('Município ainda fora do Emissor Nacional após a virada', {
+      invoiceId: processing.id,
+      tenantId: processing.tenantId,
+    });
+    await this.deps.scheduler.scheduleIssue(parked.id, next).catch(() => undefined);
+    return parked;
   }
 
   private onNumberConflict(processing: Invoice, foreign: IssuedNfse): Promise<Invoice> {
@@ -305,7 +398,7 @@ export class InvoiceService {
   /** Prévia do que será enviado à prefeitura (modo piloto). */
   async preview(tenant: Tenant, id: string): Promise<{ provider: string; xml: string }> {
     const invoice = await this.get(tenant.id, id);
-    const provider = this.deps.providers.resolve(tenant);
+    const provider = this.providerFor(invoice, tenant);
     if (!provider.preview) {
       throw DomainError.validation(`O provedor ${provider.name} não oferece prévia`);
     }
@@ -336,14 +429,16 @@ export class InvoiceService {
 
   /** Uma nota da prefeitura pelo número, com o XML como gravado (inclusive de outros sistemas). */
   async getMunicipal(tenant: Tenant, number: string, issuedOn?: Date) {
-    const provider = this.deps.providers.resolve(tenant);
+    const known = await this.deps.invoices.findByNfseNumber(tenant.id, number.trim());
+    // Nota nossa: o sistema que a emitiu; senão, o da empresa no dia informado (ou hoje).
+    const provider = known
+      ? this.providerFor(known, tenant)
+      : this.deps.providers.resolve(tenant, issuedOn);
     if (!provider.getIssued) {
       throw DomainError.validation(`O provedor ${provider.name} não oferece esta consulta`);
     }
     // Nota emitida por nós: já sabemos o dia, então a consulta vai pelo período.
-    const day =
-      issuedOn ??
-      (await this.deps.invoices.findByNfseNumber(tenant.id, number.trim()))?.nfse?.issuedAt;
+    const day = issuedOn ?? known?.nfse?.issuedAt;
     const material = await this.deps.certificates.loadMaterial(tenant);
     const nfse = await provider.getIssued(tenant, material, number.trim(), day);
     if (!nfse) throw DomainError.notFound('NFS-e na prefeitura', number);
@@ -356,7 +451,7 @@ export class InvoiceService {
 
   /** Notas já emitidas no município (inclusive por outros sistemas), direto da prefeitura. */
   async listMunicipal(tenant: Tenant, range: { from: Date; to: Date }) {
-    const provider = this.deps.providers.resolve(tenant);
+    const provider = this.deps.providers.resolve(tenant, range.from);
     if (!provider.listIssued) {
       throw DomainError.validation(`O provedor ${provider.name} não oferece esta consulta`);
     }
@@ -425,9 +520,11 @@ export class InvoiceService {
       );
     }
     const material = await this.deps.certificates.loadMaterial(tenant);
-    const result = await this.deps.providers
-      .resolve(tenant)
-      .cancel(invoice, tenant, material, { code: reasonCode, description: description.trim() });
+    // Cancela no sistema que emitiu a nota (ex.: Ginfes), mesmo depois da virada para o nacional.
+    const result = await this.providerFor(invoice, tenant).cancel(invoice, tenant, material, {
+      code: reasonCode,
+      description: description.trim(),
+    });
     if (!result.ok) {
       throw new DomainError('VALIDATION', 'A prefeitura recusou o cancelamento', {
         errors: result.errors,

@@ -112,9 +112,7 @@ export class RefundService {
       const tenant = await this.tenantOf(invoice);
       try {
         const material = await this.deps.certificates.loadMaterial(tenant);
-        const found = await this.deps.providers
-          .resolve(tenant)
-          .findByDpsId(invoice, tenant, material);
+        const found = await this.provider(invoice, tenant).findByDpsId(invoice, tenant, material);
         // Nota encontrada só conta se for desta venda (outra pode ter usado o mesmo número de DPS).
         if (found && nfseMatchesInvoice(found, invoice)) {
           const synced = syncIssued(invoice, found, now);
@@ -143,9 +141,11 @@ export class RefundService {
     const now = () => this.deps.clock.now();
     try {
       const material = await this.deps.certificates.loadMaterial(tenant);
-      const result = await this.deps.providers
-        .resolve(tenant)
-        .cancel(invoice, tenant, material, { code: reasonCode, description: reason });
+      // Cancela no sistema que emitiu a nota, mesmo depois da virada para o nacional.
+      const result = await this.provider(invoice, tenant).cancel(invoice, tenant, material, {
+        code: reasonCode,
+        description: reason,
+      });
       if (result.ok) {
         await this.deps.invoices.updateIfStatus(
           markCancelled(invoice, reasonCode, reason, now()),
@@ -178,6 +178,10 @@ export class RefundService {
   private outcomeOf(invoice: Invoice): RefundOutcome {
     if (invoice.status !== 'CANCELLED') return invoice.cancellationErrors ? 'FAILED' : 'PENDING';
     return invoice.cancellation?.beforeIssue ? 'CANCELLED_BEFORE_ISSUE' : 'CANCELLED';
+  }
+
+  private provider(invoice: Invoice, tenant: Tenant) {
+    return this.deps.providers.forInvoice?.(invoice, tenant) ?? this.deps.providers.resolve(tenant);
   }
 
   private async tenantOf(invoice: Invoice): Promise<Tenant> {

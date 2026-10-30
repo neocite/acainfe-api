@@ -83,7 +83,13 @@ export interface MunicipalNfseSummary {
 
 /** Resolve o provedor fiscal do município/regime do tenant (Nacional no MVP; Ginfes depois). */
 export interface FiscalProviderResolver {
-  resolve(tenant: Tenant): FiscalProvider;
+  /** Sistema da empresa numa data (padrão: agora) — ex.: consultas à prefeitura. */
+  resolve(tenant: Tenant, at?: Date): FiscalProvider;
+  /**
+   * Sistema de UMA nota: o que a emitiu (cancelar, consultar, reprocessar), o que já recebeu o envio
+   * (consulta após timeout) ou, para nota nova, o da competência (virada para o Emissor Nacional).
+   */
+  forInvoice?(invoice: Invoice, tenant: Tenant): FiscalProvider;
 }
 
 export interface MunicipalServiceParams {

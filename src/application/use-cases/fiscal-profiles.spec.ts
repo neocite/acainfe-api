@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { buildAppHarness } from '../../../test/support/app-harness.js';
 import { FISCAL_PROFILES } from '../../domain/product/fiscal-profiles.js';
 import { looksLikeTestProduct, productWarnings } from '../../domain/product/product.js';
-import { companyIssRateBps, Tenant } from '../../domain/tenant/tenant.js';
+import { makeTenant } from '../../../test/support/fixtures.js';
+import { companyIssRateBps, fiscalSystemFor, Tenant } from '../../domain/tenant/tenant.js';
 
 describe('Perfis fiscais padrão ("O que você vende?")', () => {
   let h: ReturnType<typeof buildAppHarness>;
@@ -306,7 +307,6 @@ describe('Homologação × produção', () => {
 
 describe('Sistema de emissão por empresa', () => {
   it('ME/EPP de cidade no Ginfes usa o Ginfes; MEI e a flag da empresa usam o escolhido', async () => {
-    const { fiscalSystemFor } = await import('../../domain/tenant/tenant.js');
     const h = buildAppHarness();
     const { tenant } = await h.onboard();
     expect(fiscalSystemFor(tenant, ['3548708'])).toBe('GINFES');
@@ -406,5 +406,31 @@ describe('Perfil coerente com os CNAEs e "Outro serviço" (configuro eu mesmo)',
       taxStatus: 'PENDING_REVIEW',
       suggestedTaxProfile: { nationalServiceCode: '230101', issRateBps: 200 },
     });
+  });
+});
+
+describe('virada do Simples para o Emissor Nacional (CGSN 191/2026)', () => {
+  const sbc = makeTenant({ cityCode: '3548708' });
+  const timing = (at: string) => ({ at: new Date(at), cutover: '2026-11-01' });
+  const cities = ['3548708'];
+
+  it('competência até 31/10 (Brasília) no sistema da prefeitura; a partir de 01/11 no nacional', () => {
+    expect(fiscalSystemFor(sbc, cities, [], timing('2026-10-31T12:00:00Z'))).toBe('GINFES');
+    expect(fiscalSystemFor(sbc, cities, [], timing('2026-11-01T02:59:00Z'))).toBe('GINFES'); // 31/10 23h59
+    expect(fiscalSystemFor(sbc, cities, [], timing('2026-11-01T03:00:00Z'))).toBe('NACIONAL');
+    const sp = { ...sbc, cityCode: '3550308' };
+    expect(fiscalSystemFor(sp, [], ['3550308'], timing('2026-11-05T12:00:00Z'))).toBe('NACIONAL');
+    expect(fiscalSystemFor(sp, [], ['3550308'], timing('2026-10-20T12:00:00Z'))).toBe('PAULISTANA');
+  });
+
+  it('escolha explícita do sistema da prefeitura também vira; NACIONAL e MEI sempre nacional', () => {
+    const forced = { ...sbc, fiscalProvider: 'GINFES' as const };
+    expect(fiscalSystemFor(forced, [], [], timing('2026-11-02T12:00:00Z'))).toBe('NACIONAL');
+    expect(fiscalSystemFor(forced, [], [], timing('2026-10-02T12:00:00Z'))).toBe('GINFES');
+    expect(
+      fiscalSystemFor({ ...sbc, taxRegime: 'MEI' }, cities, [], timing('2026-10-02T12:00:00Z'))
+    ).toBe('NACIONAL');
+    // Sem data de virada configurada, nada muda.
+    expect(fiscalSystemFor(sbc, cities, [], { at: new Date('2027-01-01') })).toBe('GINFES');
   });
 });

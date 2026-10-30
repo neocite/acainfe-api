@@ -601,10 +601,25 @@ export type FiscalSystem = 'NACIONAL' | 'GINFES' | 'PAULISTANA';
 export function fiscalSystemFor(
   tenant: Tenant,
   ginfesCities: string[],
-  paulistanaCities: string[] = []
+  paulistanaCities: string[] = [],
+  /**
+   * Virada para o Emissor Nacional (Resolução CGSN 191/2026: Simples a partir de 01/11/2026):
+   * competência a partir de `cutover` (AAAA-MM-DD, Brasília) vai para o nacional; antes disso o
+   * sistema da prefeitura continua (emissão retroativa).
+   */
+  timing: { at?: Date; cutover?: string } = {}
 ): FiscalSystem {
-  if (tenant.fiscalProvider) return tenant.fiscalProvider;
-  if (tenant.taxRegime === 'MEI') return 'NACIONAL';
-  if (paulistanaCities.includes(tenant.cityCode)) return 'PAULISTANA';
-  return ginfesCities.includes(tenant.cityCode) ? 'GINFES' : 'NACIONAL';
+  if (tenant.fiscalProvider === 'NACIONAL' || tenant.taxRegime === 'MEI') return 'NACIONAL';
+  const municipal =
+    tenant.fiscalProvider ??
+    (paulistanaCities.includes(tenant.cityCode)
+      ? 'PAULISTANA'
+      : ginfesCities.includes(tenant.cityCode)
+        ? 'GINFES'
+        : 'NACIONAL');
+  if (municipal === 'NACIONAL' || !timing.cutover) return municipal;
+  const day = new Date((timing.at ?? new Date()).getTime() - 3 * 3_600_000)
+    .toISOString()
+    .slice(0, 10);
+  return day >= timing.cutover ? 'NACIONAL' : municipal;
 }

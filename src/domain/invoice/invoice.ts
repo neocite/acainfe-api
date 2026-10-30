@@ -51,6 +51,8 @@ export interface IssuedNfse {
 export const DPS_NUMBER_CONFLICT = 'DPS_NUMBER_CONFLICT';
 /** Modo piloto: a nota aguarda o usuário conferir a prévia e liberar o envio. */
 export const AWAITING_APPROVAL = 'AWAITING_APPROVAL';
+/** Emissor Nacional ainda não liberado pela prefeitura após a virada (E0039): nova tentativa em 1h. */
+export const AWAITING_MUNICIPALITY = 'AWAITING_MUNICIPALITY';
 
 /**
  * A nota encontrada pelo id do DPS é mesmo desta venda? Se o número do DPS já foi usado por outro
@@ -106,6 +108,8 @@ export interface Invoice {
   attempts: number;
   /** Já houve envio à prefeitura: antes de reenviar é preciso consultar o DPS (evita nota duplicada). */
   sentToProvider?: boolean;
+  /** Sistema que recebeu o envio (consultar/reprocessar no mesmo, mesmo após a virada). */
+  fiscalSystem?: FiscalSystem;
   nextAttemptAt?: Date;
   lastErrors?: FiscalError[];
   nfse?: IssuedNfse;

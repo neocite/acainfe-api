@@ -78,6 +78,17 @@ const EnvSchema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((v) => v === 'true'),
+  /**
+   * Virada do Simples para o Emissor Nacional (CGSN 191/2026): notas com competência a partir desta
+   * data (Brasília) saem pelo nacional mesmo nos municípios de GINFES_CITIES/PAULISTANA_CITIES; antes
+   * dela, pelo sistema da prefeitura (retroativas). Vazio = sem virada automática.
+   */
+  MUNICIPAL_SYSTEMS_CUTOVER: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .default('2026-11-01'),
+  /** Primeiras notas pelo Emissor Nacional de empresas desses municípios esperam aprovação. */
+  NACIONAL_PILOT_NOTES: z.coerce.number().int().min(0).default(3),
   /** Preço por NFS-e emitida, em centavos (oferta de lançamento: 80). */
   BILLING_PRICE_PER_INVOICE_CENTS: z.coerce.number().int().min(0).default(80),
   /** Dias com saldo em aberto antes de pausar a emissão. */
