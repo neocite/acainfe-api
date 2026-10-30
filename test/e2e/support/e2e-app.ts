@@ -60,6 +60,9 @@ export async function startE2EApp(envOverrides: Record<string, string> = {}): Pr
     GINFES_HOMOLOGATION_URL: ginfes.url,
     // SP também só por empresa (fiscalProvider PAULISTANA): os testes usam CNPJs de outros municípios.
     PAULISTANA_CITIES: 'none',
+    // Virada para o nacional bem no futuro: os testes do Ginfes/SP não dependem da data de hoje.
+    // A virada tem teste próprio (transition.e2e-spec.ts) com a data controlada.
+    MUNICIPAL_SYSTEMS_CUTOVER: '2999-01-01',
     PAULISTANA_URL: paulistana.url,
     GINFES_POLL_DELAYS_MS: '20,20,20,20',
     JOBS_ENABLED: 'true',

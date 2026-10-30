@@ -50,8 +50,12 @@ const HINTS: { match: RegExp; hint: string }[] = [
     hint: 'O código de tributação municipal do produto não existe na prefeitura. Confira o localServiceCode (formato de São Bernardo: 8.02/103911/1551) numa nota antiga, corrija o produto e use retry_invoice.',
   },
   {
+    match: /AWAITING_MUNICIPALITY/,
+    hint: 'A prefeitura ainda não liberou o Emissor Nacional para a empresa (virada de 01/11/2026). O açaínfe tenta de novo a cada hora sozinho: não é preciso fazer nada. Se demorar mais de um dia, avise o suporte.',
+  },
+  {
     match: /E0039|parametrizado para utilizar os emissores p[úu]blicos nacionais/i,
-    hint: 'Este município aderiu ao padrão nacional mas NÃO ao emissor nacional: a nota de ME/EPP precisa ser emitida no sistema da prefeitura (ex.: Ginfes em São Bernardo do Campo). O açaínfe ainda não emite por esse sistema; não adianta reprocessar. Avise o usuário (MEI não é afetado).',
+    hint: 'O município ainda não usa o Emissor Nacional para esta empresa: notas com competência anterior à virada (01/11/2026) saem pelo sistema da prefeitura (Ginfes em São Bernardo, NFS-e Paulistana em São Paulo). Se for posterior, a nota aguarda a liberação da prefeitura e é reenviada sozinha.',
   },
   {
     match: /E0234|endere[çc]o do tomador [ée] obrigat/i,

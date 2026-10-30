@@ -244,10 +244,20 @@ export async function buildContainer(
       .filter(Boolean);
   const ginfesCities = cityList(env.GINFES_CITIES);
   const paulistanaCities = cityList(env.PAULISTANA_CITIES);
-  const systemOf = (tenant: Tenant) => fiscalSystemFor(tenant, ginfesCities, paulistanaCities);
+  const systemOf = (tenant: Tenant, at: Date = clock.now()) =>
+    fiscalSystemFor(tenant, ginfesCities, paulistanaCities, {
+      at,
+      cutover: env.MUNICIPAL_SYSTEMS_CUTOVER,
+    });
   const providersBySystem = { NACIONAL: nacional, GINFES: ginfes, PAULISTANA: paulistana };
   const fiscalResolver: FiscalProviderResolver = overrides.fiscalResolver ?? {
-    resolve: (tenant) => providersBySystem[systemOf(tenant)],
+    resolve: (tenant, at) => providersBySystem[systemOf(tenant, at)],
+    forInvoice: (invoice, tenant) =>
+      providersBySystem[
+        invoice.nfse?.provider ??
+          (invoice.sentToProvider ? invoice.fiscalSystem : undefined) ??
+          systemOf(tenant, invoice.competenceDate)
+      ],
   };
   const municipalParams: MunicipalParamsGateway = nacional;
 
@@ -332,6 +342,11 @@ export async function buildContainer(
     billing,
     certificates,
     providers: fiscalResolver,
+    nacionalTransition: {
+      notes: env.NACIONAL_PILOT_NOTES,
+      cities: [...ginfesCities, ...paulistanaCities],
+      cutover: env.MUNICIPAL_SYSTEMS_CUTOVER,
+    },
     scheduler,
     renderer: overrides.renderer ?? new PdfmakeDanfseRenderer(),
     email,
@@ -405,7 +420,7 @@ export async function buildContainer(
     publicBaseUrl: env.PUBLIC_BASE_URL,
     pastSales,
     productService: products,
-    fiscalSystemOf: systemOf,
+    fiscalSystemOf: (tenant) => systemOf(tenant),
     approvalRequired: (tenant) => Boolean(fiscalResolver.resolve(tenant).requiresApproval),
   });
   const fiscalSettings = new FiscalSettingsService({

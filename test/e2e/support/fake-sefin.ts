@@ -6,7 +6,7 @@ import {
   gzipBase64,
 } from '../../../src/adapters/out/fiscal/nacional/nfse-xml-parser.js';
 
-export type SefinMode = 'OK' | 'DOWN' | 'REJECT';
+export type SefinMode = 'OK' | 'DOWN' | 'REJECT' | 'E0039';
 
 interface Stored {
   dpsId: string;
@@ -69,6 +69,17 @@ export class FakeSefin {
     if (req.method === 'POST' && path === '/nfse') {
       const xml = gunzipBase64(body.dpsXmlGZipB64);
       this.dpsXmls.push(xml);
+      if (this.mode === 'E0039') {
+        return send(400, {
+          erros: [
+            {
+              Codigo: 'E0039',
+              Descricao:
+                'O município emissor não está parametrizado para utilizar os emissores públicos nacionais.',
+            },
+          ],
+        });
+      }
       if (this.mode === 'REJECT') {
         return send(400, {
           erros: [
