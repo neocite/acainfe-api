@@ -6,7 +6,7 @@ O açaínfe guarda certificados digitais A1 e emite documentos fiscais em nome d
 
 **Não abra issue, discussão ou PR público.** Use um destes canais privados:
 
-1. **GitHub:** aba [Security → Report a vulnerability](https://github.com/extractify/acainfe-api/security/advisories/new) (preferido).
+1. **GitHub:** aba [Security → Report a vulnerability](https://github.com/neocite/acainfe-api/security/advisories/new) (preferido).
 2. **E-mail:** contato@extractify.com.br, com o assunto `[SEGURANÇA]`.
 
 Inclua o que for possível: descrição, impacto, passos para reproduzir, versão (commit) e uma prova de conceito mínima.

@@ -4,7 +4,7 @@ Obrigado pelo interesse! O açaínfe emite notas fiscais de verdade, então o cu
 
 ## Antes de começar
 
-- **Bugs e sugestões:** abra uma [issue](https://github.com/extractify/acainfe-api/issues/new/choose). Para mudanças grandes (nova prefeitura, novo gateway, mudança de modelo), discuta na issue antes de escrever código.
+- **Bugs e sugestões:** abra uma [issue](https://github.com/neocite/acainfe-api/issues/new/choose). Para mudanças grandes (nova prefeitura, novo gateway, mudança de modelo), discuta na issue antes de escrever código.
 - **Vulnerabilidades:** nunca em issue pública. Veja o [SECURITY.md](SECURITY.md).
 - **Conduta:** seguimos o [Código de Conduta](CODE_OF_CONDUCT.md).
 

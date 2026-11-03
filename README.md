@@ -1,6 +1,6 @@
 # açaínfe — API
 
-[![CI](https://github.com/extractify/acainfe-api/actions/workflows/ci.yml/badge.svg)](https://github.com/extractify/acainfe-api/actions/workflows/ci.yml)
+[![CI](https://github.com/neocite/acainfe-api/actions/workflows/ci.yml/badge.svg)](https://github.com/neocite/acainfe-api/actions/workflows/ci.yml)
 [![Licença: AGPL-3.0](https://img.shields.io/badge/licen%C3%A7a-AGPL--3.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.23.4-339933.svg)](.nvmrc)
 

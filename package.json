@@ -6,10 +6,10 @@
   "homepage": "https://acainfe.com",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/extractify/acainfe-api.git"
+    "url": "git+https://github.com/neocite/acainfe-api.git"
   },
   "bugs": {
-    "url": "https://github.com/extractify/acainfe-api/issues"
+    "url": "https://github.com/neocite/acainfe-api/issues"
   },
   "author": "EXTRACTIFY TECNOLOGIA LTDA <contato@extractify.com.br>",
   "license": "AGPL-3.0-only",
