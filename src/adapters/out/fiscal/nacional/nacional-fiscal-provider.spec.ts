@@ -94,6 +94,14 @@ describe('NacionalFiscalProvider', () => {
     });
   });
 
+  it('prévia devolve o DPS sem assinatura e sem chamar a Sefin', () => {
+    const before = http.calls.length;
+    const xml = provider.preview(makeInvoice(), makeTenant());
+    expect(xml).toContain('<infDPS');
+    expect(xml).not.toContain('Signature');
+    expect(http.calls).toHaveLength(before);
+  });
+
   it('validação local vira REJECTED sem chamar a Sefin', async () => {
     const invoice = makeInvoice({
       taxProfile: createTaxProfile({ nationalServiceCode: '010701', issRetention: 'TOMADOR' }),

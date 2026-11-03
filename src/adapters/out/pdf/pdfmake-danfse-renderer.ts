@@ -69,6 +69,31 @@ function section(title: string, rows: [string, string | undefined][]): Content {
   };
 }
 
+/** Valor em texto do XML (1234.50) no formato de moeda da nota (R$ 1.234,50). */
+export function moneyFromXml(value: string): string {
+  const [whole, decimals = ''] = value.trim().split('.');
+  return formatBRL(Number(whole) * 100 + Number(decimals.padEnd(2, '0').slice(0, 2)));
+}
+
+/**
+ * Nota nacional: só mostra o que foi no DPS. A IM depende de sendMunicipalRegistration e a alíquota
+ * só vai com ISS retido (no Simples sem retenção, o ISS é pago no DAS).
+ */
+export function issuedTaxFields(invoice: Invoice, tenant: Tenant, issRateText?: string) {
+  const nacional = invoice.nfse?.provider === 'NACIONAL';
+  const profile = invoice.taxProfile;
+  const showRate = !nacional || profile.issRetention !== 'NONE';
+  return {
+    municipalRegistration:
+      nacional && !tenant.sendMunicipalRegistration ? undefined : tenant.municipalRegistration,
+    issRate: issRateText
+      ? `${issRateText.replace('.', ',')}%`
+      : showRate && profile.issRateBps !== undefined
+        ? `${formatBps(profile.issRateBps)}%`
+        : undefined,
+  };
+}
+
 /**
  * DANFSe gerado localmente (a API pública do Sistema Nacional foi descontinuada em ago/2026),
  * inspirado no leiaute da NT 008/2026: A4, chave de acesso, QR Code de consulta pública
@@ -89,6 +114,7 @@ export class PdfmakeDanfseRenderer implements DanfseRenderer {
     const customer = invoice.customer;
     const cancelled = invoice.status === 'CANCELLED';
     const profile = invoice.taxProfile;
+    const taxFields = issuedTaxFields(invoice, tenant, summary.issRateText);
 
     const definition: TDocumentDefinitions = {
       pageSize: 'A4',
@@ -169,7 +195,7 @@ export class PdfmakeDanfseRenderer implements DanfseRenderer {
         section('PRESTADOR DO SERVIÇO', [
           ['Razão social', summary.issuerName ?? tenant.legalName],
           ['CNPJ', formatTaxId('CNPJ', tenant.cnpj)],
-          ['Inscrição municipal', tenant.municipalRegistration],
+          ['Inscrição municipal', taxFields.municipalRegistration],
           ['Endereço', summary.issuerAddress],
         ]),
         section('TOMADOR DO SERVIÇO', [
@@ -209,20 +235,13 @@ export class PdfmakeDanfseRenderer implements DanfseRenderer {
         },
         section('VALORES', [
           ['Valor do serviço', formatBRL(invoice.amountCents)],
-          ['Base de cálculo', summary.issBase ? `R$ ${summary.issBase}` : undefined],
-          [
-            'Alíquota ISS',
-            summary.issRateText
-              ? `${summary.issRateText.replace('.', ',')}%`
-              : profile.issRateBps !== undefined
-                ? `${formatBps(profile.issRateBps)}%`
-                : undefined,
-          ],
-          ['Valor do ISS', summary.issValue ? `R$ ${summary.issValue}` : undefined],
+          ['Base de cálculo', summary.issBase ? moneyFromXml(summary.issBase) : undefined],
+          ['Alíquota ISS', taxFields.issRate],
+          ['Valor do ISS', summary.issValue ? moneyFromXml(summary.issValue) : undefined],
           ['ISS retido', profile.issRetention === 'NONE' ? 'Não' : 'Sim'],
           [
             'Valor líquido',
-            summary.netValue ? `R$ ${summary.netValue}` : formatBRL(invoice.amountCents),
+            summary.netValue ? moneyFromXml(summary.netValue) : formatBRL(invoice.amountCents),
           ],
         ]),
         approximateTaxesLine(invoice, tenant),

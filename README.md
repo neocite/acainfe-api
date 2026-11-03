@@ -156,7 +156,7 @@ A Resolução CGSN 191/2026 obriga o Simples Nacional (ME/EPP) a emitir pelo Emi
 - **Competência até 31/10:** sistema da prefeitura (Ginfes ou NFS-e Paulistana), como emissão retroativa. Inclui a nota mensal de uso de outubro, emitida em 01/11.
 - **Competência a partir de 01/11:** Emissor Nacional.
 - **Nota já emitida:** cancelamento, consulta e reprocessamento vão para o sistema que a emitiu (`nfse.provider`). Uma nota que já recebeu envio guarda o sistema em `fiscalSystem`.
-- **Aprovação manual no início:** as primeiras `NACIONAL_PILOT_NOTES` (3) notas pelo nacional de cada empresa dessas cidades esperam aprovação (`AWAITING_APPROVAL`, com `preview_invoice` e `approve_invoice`).
+- **Aprovação é opção da empresa:** com `requireInvoiceApproval: true` (`update_company`), cada nota espera a conferência (`AWAITING_APPROVAL`, com `preview_invoice` e `approve_invoice`). O padrão é emitir direto.
 - **Prefeitura atrasada:** se a Sefin recusar com E0039 ("município não usa o emissor nacional") depois da virada, a nota fica `RETRYING` com `AWAITING_MUNICIPALITY` e é reenviada a cada hora, sem gastar tentativas.
 
 ### Homologação × produção
@@ -366,7 +366,7 @@ Os XSDs oficiais do leiaute nacional (pacote `NFSe-ESQUEMAS_XSD-v1.01-20260209`)
 
 ## Pendências conhecidas e pontos a validar em homologação
 
-- **Emissor Nacional para cidades com sistema próprio (SBC, SP) ainda sem nota real em produção:** as primeiras notas de cada empresa passam por aprovação manual (`NACIONAL_PILOT_NOTES`).
+- **E0120 no Emissor Nacional:** se o cadastro nacional da empresa não tiver a inscrição municipal, a Sefin recusa a nota que a informa. Desligue `sendMunicipalRegistration` na empresa e reprocesse (primeira nota real em SBC: 03/11/2026, NFS-e nº 23).
 - **Pontos não confirmados na documentação oficial:**
   - se `GET /dps/{id}` usa o Id completo (com prefixo `DPS`);
   - o formato da competência na parametrização da ADN;

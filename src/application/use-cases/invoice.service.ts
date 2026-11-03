@@ -72,7 +72,7 @@ export class InvoiceService {
        * municípios esperam aprovação; e, a partir de `cutover`, a recusa E0039 ("município não usa o
        * emissor nacional") deixa a nota aguardando a prefeitura em vez de rejeitá-la.
        */
-      nacionalTransition?: { notes: number; cities: string[]; cutover?: string };
+      nacionalTransition?: { cutover?: string };
       scheduler: JobScheduler;
       renderer: DanfseRenderer;
       email: EmailSender;
@@ -165,7 +165,7 @@ export class InvoiceService {
     const tenant = await this.deps.tenants.findById(current.tenantId);
     if (!tenant) throw DomainError.notFound('Empresa', current.tenantId);
     const provider = this.providerFor(current, tenant);
-    const approvalReason = current.approval ? null : await this.approvalReason(provider, tenant);
+    const approvalReason = current.approval ? null : this.approvalReason(provider, tenant);
     if (approvalReason) {
       // Modo piloto: espera o usuário conferir a prévia (preview_invoice) e liberar (approve_invoice).
       if (current.lastErrors?.[0]?.code !== AWAITING_APPROVAL) {
@@ -261,28 +261,14 @@ export class InvoiceService {
   }
 
   /** Por que a nota precisa de aprovação antes do envio (null = não precisa). */
-  private async approvalReason(provider: FiscalProvider, tenant: Tenant): Promise<string | null> {
+  private approvalReason(provider: FiscalProvider, tenant: Tenant): string | null {
     if (provider.requiresApproval) {
       return `Integração ${provider.name} em modo piloto: confira a prévia da nota e aprove o envio à prefeitura.`;
     }
-    const transition = this.deps.nacionalTransition;
-    if (
-      provider.name !== 'NACIONAL' ||
-      !transition?.notes ||
-      !transition.cities.includes(tenant.cityCode) ||
-      tenant.taxRegime === 'MEI'
-    ) {
-      return null;
+    if (tenant.requireInvoiceApproval) {
+      return 'A empresa aprova cada nota antes do envio: confira a prévia e aprove.';
     }
-    const issued = await this.deps.invoices.list(tenant.id, {
-      status: ['ISSUED', 'CANCELLED'],
-      pageSize: 100,
-    });
-    const count = issued.items.filter(
-      (i) => (i.nfse?.provider ?? 'NACIONAL') === 'NACIONAL'
-    ).length;
-    if (count >= transition.notes) return null;
-    return `Primeiras notas pelo Emissor Nacional (a prefeitura migrou para o padrão nacional): confira a prévia e aprove o envio (${count + 1} de ${transition.notes}).`;
+    return null;
   }
 
   /** Recusa E0039 depois da virada: a prefeitura ainda não liberou o emissor nacional para o Simples. */

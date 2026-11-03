@@ -38,7 +38,6 @@ describe('Virada do Simples para o Emissor Nacional (São Bernardo, Ginfes → n
       GINFES_CITIES: '3548708',
       GINFES_PILOT: 'false',
       MUNICIPAL_SYSTEMS_CUTOVER: todayBrt,
-      NACIONAL_PILOT_NOTES: '1',
     });
     ({ apiKey } = await onboardTenant(ctx));
     await http()
@@ -79,20 +78,9 @@ describe('Virada do Simples para o Emissor Nacional (São Bernardo, Ginfes → n
     expect(ctx.sefin.dpsXmls).toHaveLength(0);
   });
 
-  it('a partir da virada: nacional, com aprovação na primeira nota e espera se a prefeitura não liberou (E0039)', async () => {
+  it('a partir da virada: vai direto ao nacional e espera se a prefeitura não liberou (E0039)', async () => {
     ctx.sefin.mode = 'E0039';
     const id = await sale('venda-novembro');
-    const waiting = await eventually(
-      () => getInvoice(id),
-      (b) => b.lastErrors?.[0]?.code === 'AWAITING_APPROVAL'
-    );
-    expect(waiting.lastErrors[0].message).toMatch(/Primeiras notas pelo Emissor Nacional/);
-
-    const approved = (await client.callTool({
-      name: 'approve_invoice',
-      arguments: { id },
-    })) as ToolResult;
-    expect(approved.isError).toBeFalsy();
     const parked = await eventually(
       () => getInvoice(id),
       (b) => b.lastErrors?.[0]?.code === 'AWAITING_MUNICIPALITY'
@@ -117,8 +105,31 @@ describe('Virada do Simples para o Emissor Nacional (São Bernardo, Ginfes → n
     expect(issued.nfse.provider).toBe('NACIONAL');
   });
 
-  it('depois da primeira nota aprovada, as seguintes saem sozinhas pelo nacional', async () => {
+  it('empresa que escolheu aprovar: a nota espera, a prévia mostra o DPS e sai depois de aprovada', async () => {
+    const updated = (await client.callTool({
+      name: 'update_company',
+      arguments: { requireInvoiceApproval: true },
+    })) as ToolResult;
+    expect(updated.isError).toBeFalsy();
+    const company = (await client.callTool({ name: 'get_company', arguments: {} })) as ToolResult;
+    expect(JSON.parse(company.content[0].text!).emission.approvalRequired).toBe(true);
+
+    const sent = ctx.sefin.dpsXmls.length;
     const id = await sale('venda-novembro-2');
+    await eventually(
+      () => getInvoice(id),
+      (b) => b.lastErrors?.[0]?.code === 'AWAITING_APPROVAL'
+    );
+    expect(ctx.sefin.dpsXmls).toHaveLength(sent);
+
+    const preview = (await client.callTool({
+      name: 'preview_invoice',
+      arguments: { id },
+    })) as ToolResult;
+    expect(preview.isError).toBeFalsy();
+    expect(preview.content[0].text).toContain('infDPS');
+
+    await client.callTool({ name: 'approve_invoice', arguments: { id } });
     const issued = await eventually(
       () => getInvoice(id),
       (b) => b.status === 'ISSUED'

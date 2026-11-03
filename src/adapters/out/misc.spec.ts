@@ -2,8 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { makeInvoice, makeTenant } from '../../../test/support/fixtures.js';
 import { sampleNfse } from '../../../test/support/in-memory.js';
 import { loadEnv, parseMasterKeys } from '../../config/env.js';
+import { createTaxProfile } from '../../domain/product/tax-profile.js';
 import { StaticServiceCodeCatalog } from './catalog/static-service-code-catalog.js';
-import { PdfmakeDanfseRenderer } from './pdf/pdfmake-danfse-renderer.js';
+import {
+  issuedTaxFields,
+  moneyFromXml,
+  PdfmakeDanfseRenderer,
+} from './pdf/pdfmake-danfse-renderer.js';
 import { HmacDocumentLinks } from './system.js';
 import { UazapiWhatsappSender } from './whatsapp/uazapi-whatsapp-sender.js';
 
@@ -82,6 +87,32 @@ describe('uazapi', () => {
 });
 
 describe('DANFSe', () => {
+  it('formata os valores do XML como moeda', () => {
+    expect(moneyFromXml('1.00').replace(/\s/g, ' ')).toBe('R$ 1,00');
+    expect(moneyFromXml('1234.5').replace(/\s/g, ' ')).toBe('R$ 1.234,50');
+  });
+
+  it('nota nacional só mostra IM e alíquota que foram no DPS; a da prefeitura continua igual', () => {
+    const tenant = makeTenant({
+      municipalRegistration: '337086',
+      sendMunicipalRegistration: false,
+    });
+    const taxProfile = createTaxProfile({
+      nationalServiceCode: '080201',
+      issRateBps: 201,
+    });
+    const nfse = (provider: 'NACIONAL' | 'GINFES') =>
+      ({ provider, accessKey: 'k', number: '1', issuedAt: new Date() }) as never;
+    expect(issuedTaxFields(makeInvoice({ taxProfile, nfse: nfse('NACIONAL') }), tenant)).toEqual({
+      municipalRegistration: undefined,
+      issRate: undefined,
+    });
+    expect(issuedTaxFields(makeInvoice({ taxProfile, nfse: nfse('GINFES') }), tenant)).toEqual({
+      municipalRegistration: '337086',
+      issRate: '2,01%',
+    });
+  });
+
   it('gera PDF para nota emitida e cancelada', async () => {
     const renderer = new PdfmakeDanfseRenderer();
     const pdf = await renderer.render(

@@ -190,6 +190,12 @@ describe('dicas de rejeição', () => {
       explainFiscalErrors([{ code: 'E0625', message: 'Alíquota informada indevidamente' }])[0]
     ).toMatch(/issRateBps/);
     expect(explainFiscalErrors([{ code: 'E9', message: 'xyz' }])[0]).toMatch(/retry_invoice/);
+    // E0120 cita o CNC: só a orientação de desligar a IM, sem pedir para habilitar a empresa.
+    const e0120 = explainFiscalErrors([
+      { code: 'E0120', message: 'IM do prestador não deve ser informado, ... no CNC NFS-e' },
+    ]);
+    expect(e0120).toHaveLength(1);
+    expect(e0120[0]).toMatch(/sendMunicipalRegistration: false/);
     expect(
       explainFiscalErrors([
         { code: 'E0116', message: 'Inscrição municipal do prestador não informada' },

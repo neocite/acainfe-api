@@ -88,7 +88,6 @@ const EnvSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .default('2026-11-01'),
   /** Primeiras notas pelo Emissor Nacional de empresas desses municípios esperam aprovação. */
-  NACIONAL_PILOT_NOTES: z.coerce.number().int().min(0).default(3),
   /** Preço por NFS-e emitida, em centavos (oferta de lançamento: 80). */
   BILLING_PRICE_PER_INVOICE_CENTS: z.coerce.number().int().min(0).default(80),
   /** Dias com saldo em aberto antes de pausar a emissão. */

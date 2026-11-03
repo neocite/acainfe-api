@@ -73,4 +73,20 @@ describe('Modo piloto (integração nova com a prefeitura)', () => {
     });
     expect(items[0]).toMatchObject({ number: '777', amountCents: 9700 });
   });
+
+  it('aprovação é escolha da empresa: sem a opção emite direto, com ela espera', async () => {
+    h.provider.requiresApproval = false;
+    const direct = await sale('direta');
+    await h.invoices.issue(direct.id);
+    expect((await h.invoices.get(tenant.id, direct.id)).status).toBe('ISSUED');
+
+    await h.tenants.update(tenant.id, { requireInvoiceApproval: true });
+    tenant = (await h.repos.tenants.findById(tenant.id))!;
+    const held = await sale('com-aprovacao');
+    await h.invoices.issue(held.id);
+    expect(await h.invoices.get(tenant.id, held.id)).toMatchObject({
+      status: 'PENDING',
+      lastErrors: [{ code: 'AWAITING_APPROVAL' }],
+    });
+  });
 });

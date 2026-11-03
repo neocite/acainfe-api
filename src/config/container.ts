@@ -343,8 +343,6 @@ export async function buildContainer(
     certificates,
     providers: fiscalResolver,
     nacionalTransition: {
-      notes: env.NACIONAL_PILOT_NOTES,
-      cities: [...ginfesCities, ...paulistanaCities],
       cutover: env.MUNICIPAL_SYSTEMS_CUTOVER,
     },
     scheduler,
@@ -421,7 +419,8 @@ export async function buildContainer(
     pastSales,
     productService: products,
     fiscalSystemOf: (tenant) => systemOf(tenant),
-    approvalRequired: (tenant) => Boolean(fiscalResolver.resolve(tenant).requiresApproval),
+    approvalRequired: (tenant) =>
+      Boolean(fiscalResolver.resolve(tenant).requiresApproval || tenant.requireInvoiceApproval),
   });
   const fiscalSettings = new FiscalSettingsService({
     onboarding,

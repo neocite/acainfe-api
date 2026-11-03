@@ -99,7 +99,7 @@ export class FakeSefin {
         return send(400, { erros: [{ Codigo: 'E0014', Descricao: 'DPS já existente na base' }] });
       const number = ++this.seq;
       const accessKey = `3548708${'2'}${'2'}${dpsId.slice(11, 25)}${String(number).padStart(13, '0')}2610${'000000001'}${'7'}`;
-      const nfseXml = `<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01"><infNFSe Id="NFS${accessKey}"><xLocEmi>São Bernardo do Campo</xLocEmi><nNFSe>${number}</nNFSe><xTribNac>Serviço</xTribNac><dhProc>2026-10-18T10:00:00-03:00</dhProc><emit><xNome>EMPRESA TESTE LTDA</xNome></emit><valores><vLiq>0.00</vLiq></valores>${xml.replace(/^<\?xml[^>]*\?>/, '')}</infNFSe></NFSe>`;
+      const nfseXml = `<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01"><infNFSe Id="NFS${accessKey}"><xLocEmi>São Bernardo do Campo</xLocEmi><nNFSe>${number}</nNFSe><xTribNac>Serviço</xTribNac><dhProc>${new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 19)}-03:00</dhProc><emit><xNome>EMPRESA TESTE LTDA</xNome></emit><valores><vLiq>0.00</vLiq></valores>${xml.replace(/^<\?xml[^>]*\?>/, '')}</infNFSe></NFSe>`;
       const stored = { dpsId, accessKey, number, nfseXml };
       this.byDps.set(dpsId, stored);
       this.byKey.set(accessKey, stored);

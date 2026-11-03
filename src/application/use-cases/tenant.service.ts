@@ -73,6 +73,7 @@ export type TenantPatch = Partial<
     | 'businessType'
     | 'issRateBps'
     | 'fiscalProvider'
+    | 'requireInvoiceApproval'
   >
 > & {
   notifications?: Partial<Tenant['notifications']>;

@@ -128,6 +128,13 @@ export class NacionalFiscalProvider implements FiscalProvider, MunicipalParamsGa
     }
   }
 
+  preview(invoice: Invoice, tenant: Tenant): string {
+    return buildDpsXml(invoice, tenant, {
+      appVersion: this.deps.appVersion,
+      now: this.deps.clock.now(),
+    });
+  }
+
   async issue(
     invoice: Invoice,
     tenant: Tenant,

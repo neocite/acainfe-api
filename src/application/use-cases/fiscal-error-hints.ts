@@ -90,7 +90,11 @@ const HINTS: { match: RegExp; hint: string }[] = [
     hint: 'O código de serviço (nationalServiceCode) pode não estar habilitado no município. Use suggest_service_code / municipal-params.',
   },
   {
-    match: /inscri[çc][ãa]o municipal|CNC|cadastro/i,
+    match: /\bE0120\b/,
+    hint: 'A Sefin não quer a inscrição municipal no XML: o cadastro nacional (CNC) da empresa não tem esse dado neste município. Use update_company com sendMunicipalRegistration: false e retry_invoice.',
+  },
+  {
+    match: /^(?!E0120\b).*(inscri[çc][ãa]o municipal|CNC|cadastro)/is,
     hint: 'A empresa precisa estar habilitada no Sistema Nacional NFS-e (primeiro acesso no Emissor Nacional) com a inscrição municipal ativa.',
   },
   {

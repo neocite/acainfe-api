@@ -203,6 +203,10 @@ export const CreateTenantSchema = z.object({
   ).optional(),
   specialTaxRegime: specialTaxRegime.optional(),
   sendMunicipalRegistration: z.boolean().optional(),
+  requireInvoiceApproval: z
+    .boolean()
+    .optional()
+    .describe('Cada nota espera aprovação (preview_invoice + approve_invoice) antes do envio'),
   environment: z.enum(['PRODUCTION', 'HOMOLOGATION']).optional(),
   email: z.string(),
   phone: z.string().optional(),

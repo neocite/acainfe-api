@@ -89,6 +89,8 @@ export interface Tenant {
   specialTaxRegime: SpecialTaxRegime;
   /** Enviar IM no DPS (alguns municípios rejeitam se o CNC não exigir — E0120). */
   sendMunicipalRegistration: boolean;
+  /** A empresa quer conferir e aprovar cada nota antes do envio (preview_invoice + approve_invoice). */
+  requireInvoiceApproval?: boolean;
   environment: FiscalEnvironment;
   email: string;
   phone?: string;
@@ -230,6 +232,7 @@ export interface TenantInput {
   simplesNacionalTaxRateBps?: number;
   specialTaxRegime?: SpecialTaxRegime;
   sendMunicipalRegistration?: boolean;
+  requireInvoiceApproval?: boolean;
   environment?: FiscalEnvironment;
   email: string;
   phone?: string;
@@ -315,6 +318,7 @@ export function createTenant(
     simplesNacionalTaxRateBps: rate,
     specialTaxRegime: input.specialTaxRegime ?? 'NONE',
     sendMunicipalRegistration: input.sendMunicipalRegistration ?? true,
+    requireInvoiceApproval: input.requireInvoiceApproval,
     environment: input.environment ?? 'HOMOLOGATION',
     email: normalizeEmail(input.email),
     phone: input.phone,
