@@ -611,6 +611,24 @@ describe('GinfesFiscalProvider', () => {
     expect(await provider.listIssued(prodTenant, material, { from: NOW, to: NOW })).toEqual([]);
   });
 
+  it('período sem notas: "A consulta não retornou dados" é lista vazia, não erro', async () => {
+    const empty = errorReply('ConsultarNfseResposta', 'GINFES', 'A consulta não retornou dados.');
+    const s = scripted({ ConsultarNfseV3: [empty, empty] });
+    const provider = new GinfesFiscalProvider(s.transport, config);
+    expect(await provider.listIssued(prodTenant, material, { from: NOW, to: NOW })).toEqual([]);
+    expect(await provider.getIssued(prodTenant, material, '1', NOW)).toBeNull();
+  });
+
+  it('outras mensagens da prefeitura continuam sendo erro na consulta', async () => {
+    const s = scripted({
+      ConsultarNfseV3: [errorReply('ConsultarNfseResposta', 'E4', 'Certificado inválido')],
+    });
+    const provider = new GinfesFiscalProvider(s.transport, config);
+    await expect(provider.listIssued(prodTenant, material, { from: NOW, to: NOW })).rejects.toThrow(
+      /Certificado inválido/
+    );
+  });
+
   it('homologação usa o endpoint de homologação', async () => {
     const s = scripted({ ConsultarNfseV3: ['<r/>'] });
     await new GinfesFiscalProvider(s.transport, config).listIssued(

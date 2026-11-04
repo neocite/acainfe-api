@@ -74,6 +74,9 @@ export const SBC_VERIFICATION_URL = (n: { number: string; verificationCode: stri
  * Se o processamento demorar, lança indisponibilidade: a fila tenta de novo e, antes de reenviar,
  * consulta o RPS (findByDpsId) — o RPS é a chave de idempotência.
  */
+/** Consulta sem resultado também volta como mensagem, com textos diferentes conforme o caso. */
+const NO_NOTES_RE = /n[ãa]o (foi )?encontrad|n[ãa]o existe|n[ãa]o retornou dados/i;
+
 export class GinfesFiscalProvider implements FiscalProvider {
   readonly name = 'GINFES';
   readonly requiresApproval: boolean;
@@ -231,10 +234,7 @@ export class GinfesFiscalProvider implements FiscalProvider {
     const found = parseCompNfseList(xml).find((n) => n.number === number);
     if (found) return found;
     const errors = parseMessages(xml);
-    if (
-      errors.length &&
-      !errors.every((e) => /n[ãa]o (foi )?encontrad|n[ãa]o existe/i.test(e.message))
-    ) {
+    if (errors.length && !errors.every((e) => NO_NOTES_RE.test(e.message))) {
       throw new FiscalProviderUnavailableError(
         errors.map((e) => `${e.code} ${e.message}`).join('; ')
       );
@@ -258,7 +258,7 @@ export class GinfesFiscalProvider implements FiscalProvider {
     if (!list.length) {
       const errors = parseMessages(xml);
       // Sem notas no período também volta como mensagem; só é erro se não for "não encontrado".
-      if (errors.length && !errors.every((e) => /n[ãa]o (foi )?encontrad/i.test(e.message))) {
+      if (errors.length && !errors.every((e) => NO_NOTES_RE.test(e.message))) {
         throw new FiscalProviderUnavailableError(
           errors.map((e) => `${e.code} ${e.message}`).join('; ')
         );
