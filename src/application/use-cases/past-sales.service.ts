@@ -66,7 +66,7 @@ export class PastSalesService {
       /** Notas já emitidas na prefeitura (por qualquer sistema) — para cruzar antes de emitir. */
       municipalInvoices?: {
         listMunicipal(tenant: Tenant, range: { from: Date; to: Date }): Promise<MunicipalNote[]>;
-        canListMunicipal(tenant: Tenant): boolean;
+        canListMunicipal(tenant: Tenant, at?: Date): boolean;
       };
     }
   ) {}
@@ -332,7 +332,12 @@ export class PastSalesService {
       skippedWithoutProduct: 0,
       failed: [],
     };
-    if (!input.skipReconciliation && this.deps.municipalInvoices?.canListMunicipal(tenant)) {
+    // O sistema do período das vendas, não o de hoje: venda antiga de empresa que já migrou ainda
+    // pode ter nota na prefeitura (ex.: eNotas) e não pode sair em duplicidade.
+    if (
+      !input.skipReconciliation &&
+      this.deps.municipalInvoices?.canListMunicipal(tenant, periodRange(input.period).to)
+    ) {
       const available = await this.deps.pastSales.list(tenant.id, {
         period: input.period,
         status: ['AVAILABLE'],

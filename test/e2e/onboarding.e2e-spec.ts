@@ -382,6 +382,9 @@ describe('Onboarding self-service (app Replit → açaínfe → MCP)', () => {
     await asUser(http().post(`/v1/app/companies/${tenantId}/past-sales/mark`))
       .send({ ids: [hist2.id], alreadyIssued: true })
       .expect(201);
+    await asUser(
+      http().get(`/v1/app/companies/${tenantId}/past-sales/reconcile?period=${period}`)
+    ).expect(200);
     const pastIssued = await asUser(http().post(`/v1/app/companies/${tenantId}/past-sales/issue`))
       .send({ period })
       .expect(201);

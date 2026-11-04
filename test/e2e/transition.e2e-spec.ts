@@ -137,6 +137,19 @@ describe('Virada do Simples para o Emissor Nacional (São Bernardo, Ginfes → n
     expect(issued.nfse.provider).toBe('NACIONAL');
   });
 
+  it('depois da virada, a consulta de notas traz o nacional e a prefeitura', async () => {
+    const result = (await client.callTool({
+      name: 'list_municipal_invoices',
+      arguments: { from: '2026-01-01', to: todayBrt },
+    })) as ToolResult;
+    expect(result.isError).toBeFalsy();
+    const { items } = JSON.parse(result.content[0].text!) as {
+      items: { system: string; issuedByAcainfe: boolean; amountCents: number }[];
+    };
+    expect(new Set(items.map((n) => n.system))).toEqual(new Set(['NACIONAL', 'GINFES']));
+    expect(items.every((n) => n.issuedByAcainfe && n.amountCents === 9700)).toBe(true);
+  });
+
   it('nota antiga do Ginfes continua sendo cancelada no Ginfes', async () => {
     await http()
       .post(`/v1/invoices/${ginfesInvoiceId}/cancel`)

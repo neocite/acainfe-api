@@ -118,6 +118,7 @@ describe('MCP: operação completa da empresa', () => {
     });
 
     const period = connected.structuredContent!.pastSales.periods[0].period;
+    await call('reconcile_past_sales', { period });
     const issued = await call('issue_past_sales', { period });
     expect(issued.structuredContent).toMatchObject({ issued: 1, held: 0, failed: [] });
     await eventually(

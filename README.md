@@ -146,6 +146,7 @@ As ME/EPP da capital emitem pelo web service da prefeitura (NFS-e Paulistana) at
 - **Simples (DAS):** `TributacaoRPS=T` e sem ISS destacado; a alíquota vai só como informação (diferença gera apenas alerta).
 - **Liberação de SP:** cadastre a cobertura uma vez: `PUT /v1/admin/coverage/3550308 {"simples": true, "others": false, "cityName": "São Paulo", "uf": "SP"}`. Isso ativa e avisa quem estava na lista de espera.
 - **Virada para o nacional:** `PAULISTANA_CITIES=none`, ou `fiscalProvider: NACIONAL` por empresa.
+- **Depois da virada:** as consultas olham o Emissor Nacional (distribuição do ADN, `GET /contribuintes/DFe/{NSU}`) e o sistema da prefeitura, porque outro emissor pode continuar nele. A mesma nota entra uma vez, e uma falha em qualquer sistema falha a consulta em vez de esconder notas. O campo `system` diz onde a nota foi encontrada.
 - **Consultas e cruzamento:** `get_municipal_invoice` e `list_municipal_invoices` usam `ConsultaNFe` e `ConsultaNFeEmitidas` (janelas de 31 dias, páginas de 50). O cruzamento de vendas antigas funciona igual ao do Ginfes.
 - **Cancelamento:** `CancelamentoNFe`, que só cancela notas geradas via web service (erro 1306).
 
@@ -377,7 +378,7 @@ Os XSDs oficiais do leiaute nacional (pacote `NFSe-ESQUEMAS_XSD-v1.01-20260209`)
 - **DANFSe** segue os elementos da NT 008/2026 (chave, QR Code, tarja de cancelada), mas não reproduz o leiaute oficial pixel a pixel.
 - **Perfil microSaaS** (010501 / NBS 115062100 / cIndOp 100501) precisa de validação de um contador. O cIndOp 100501 é o que a tabela oficial associa ao 01.05, mas é incomum com NBS de serviço. A alternativa seria 010302 (hospedagem) com 100301.
 - **ISS estimado no Simples** usa a parcela da 1ª faixa do Anexo III (33,5%). Em outras faixas ou no Anexo V (Fator R abaixo de 28%, comum em software) a parcela é outra; o usuário pode informar `issRateBps`.
-- **IBS/CBS:** obrigatório para o Simples a partir de 01/01/2027. Hoje, venda para consumidor sem CPF/CNPJ sai sem tomador e sem o grupo IBS/CBS, porque o cIndOp 100301 exige o endereço do tomador (E0234). A partir de 2027 será preciso coletar o CPF nessas vendas.
+- **IBS/CBS:** obrigatório para o Simples a partir de 01/01/2027. Hoje, venda sem CPF/CNPJ ou sem endereço do tomador sai sem o grupo IBS/CBS, porque o cIndOp 100301 exige o endereço (E0234). A regra para 2027 ainda depende de definição fiscal.
 - **Catálogo de códigos de serviço** é um subconjunto curado da LC 116. A validade no município é confirmada via `get_municipal_rate`.
 - **AbacatePay:**
   - o payload v2 não traz o celular do cliente, então não há envio por WhatsApp nesses casos;

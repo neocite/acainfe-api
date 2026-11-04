@@ -79,6 +79,8 @@ export interface MunicipalNfseSummary {
   details?: Record<string, string | undefined>;
   /** Marcado pelo açaínfe ao consultar: a nota é de uma venda emitida por aqui. */
   issuedByAcainfe?: boolean;
+  /** Sistema em que a nota foi encontrada. */
+  system?: string;
 }
 
 /** Resolve o provedor fiscal do município/regime do tenant (Nacional no MVP; Ginfes depois). */
@@ -90,6 +92,11 @@ export interface FiscalProviderResolver {
    * (consulta após timeout) ou, para nota nova, o da competência (virada para o Emissor Nacional).
    */
   forInvoice?(invoice: Invoice, tenant: Tenant): FiscalProvider;
+  /**
+   * Sistemas onde a empresa pode ter notas até a data (padrão: agora). Depois da virada são dois: o
+   * Emissor Nacional e o da prefeitura, que outro emissor (ex.: eNotas) pode continuar usando.
+   */
+  consultable?(tenant: Tenant, at?: Date): FiscalProvider[];
 }
 
 export interface MunicipalServiceParams {

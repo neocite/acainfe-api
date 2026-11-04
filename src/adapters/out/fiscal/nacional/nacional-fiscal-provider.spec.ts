@@ -228,4 +228,156 @@ describe('leitura do DPS ecoado na NFS-e', () => {
       customerDocument: undefined,
     });
   });
+
+  describe('consulta na distribuição do ADN', () => {
+    let http: FakeHttp;
+    let provider: NacionalFiscalProvider;
+    const tenant = makeTenant();
+
+    beforeEach(() => {
+      http = new FakeHttp();
+      provider = new NacionalFiscalProvider({
+        http,
+        clock: new FixedClock(NOW),
+        logger: new SilentLogger(),
+        appVersion: 'test',
+      });
+    });
+
+    const range = { from: new Date('2026-11-01T03:00:00Z'), to: new Date('2026-11-30T03:00:00Z') };
+    const distributed = (key: string, number: string, prest: string, dhProc: string) =>
+      `<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse"><infNFSe Id="NFS${key}"><nNFSe>${number}</nNFSe><dhProc>${dhProc}</dhProc><DPS><infDPS><serie>900</serie><nDPS>39</nDPS><prest><CNPJ>${prest}</CNPJ></prest><toma><CPF>52998224725</CPF><xNome>Bruno</xNome></toma><valores><vServPrest><vServ>1.00</vServ></vServPrest></valores></infDPS></DPS></infNFSe></NFSe>`;
+    const nfseItem = (nsu: number, key: string, xml: string) => ({
+      NSU: nsu,
+      ChaveAcesso: key,
+      TipoDocumento: 'NFSE',
+      ArquivoXml: gzipBase64(xml),
+    });
+    const KEY_A = '1'.repeat(50);
+    const KEY_B = '2'.repeat(50);
+    const KEY_C = '3'.repeat(50);
+    const KEY_D = '4'.repeat(50);
+
+    it('percorre as páginas: só notas prestadas no período, com cancelamento efetivo', async () => {
+      http.responses = [
+        ok(
+          {
+            StatusProcessamento: 'DOCUMENTOS_LOCALIZADOS',
+            LoteDFe: [
+              nfseItem(
+                1,
+                KEY_A,
+                distributed(KEY_A, '23', tenant.cnpj, '2026-11-03T10:40:32-03:00')
+              ),
+              // Nota recebida pelo CNPJ, como tomador: não é faturamento.
+              nfseItem(
+                2,
+                KEY_B,
+                distributed(KEY_B, '7', '99888777000166', '2026-11-03T11:00:00-03:00')
+              ),
+            ],
+          },
+          200
+        ),
+        ok(
+          {
+            StatusProcessamento: 'DOCUMENTOS_LOCALIZADOS',
+            LoteDFe: [
+              // Fora do período pedido.
+              nfseItem(
+                3,
+                KEY_C,
+                distributed(KEY_C, '22', tenant.cnpj, '2026-10-31T10:00:00-03:00')
+              ),
+              nfseItem(
+                4,
+                KEY_D,
+                distributed(KEY_D, '24', tenant.cnpj, '2026-11-03T12:00:00-03:00')
+              ),
+              // Pedido em análise ainda não cancela; o deferimento cancela (XML sem compressão).
+              {
+                NSU: 5,
+                ChaveAcesso: KEY_D,
+                TipoDocumento: 'EVENTO',
+                TipoEvento: 'SOLICITACAO_CANCELAMENTO_ANALISE_FISCAL',
+              },
+              {
+                NSU: 6,
+                ChaveAcesso: KEY_A,
+                TipoDocumento: 'EVENTO',
+                ArquivoXml: Buffer.from(
+                  '<evento><infPedReg><e105104/></infPedReg></evento>'
+                ).toString('base64'),
+              },
+            ],
+          },
+          200
+        ),
+        ok({ StatusProcessamento: 'NENHUM_DOCUMENTO_LOCALIZADO' }, 404),
+      ];
+
+      const notes = await provider.listIssued(tenant, material, range);
+
+      expect(notes.map((n) => [n.number, n.cancelled])).toEqual([
+        ['23', true],
+        ['24', false],
+      ]);
+      expect(notes[0]).toMatchObject({
+        amountCents: 100,
+        rps: { number: '39', series: '900' },
+        customerDocument: '52998224725',
+        customerName: 'Bruno',
+      });
+      expect(notes[0]).not.toHaveProperty('xml');
+      expect(http.calls.map((c) => new URL(c.url).pathname)).toEqual([
+        '/contribuintes/DFe/0',
+        '/contribuintes/DFe/2',
+        '/contribuintes/DFe/6',
+      ]);
+      expect(http.calls[0].url).toContain(`cnpjConsulta=${tenant.cnpj}&lote=true`);
+    });
+
+    it('nunca devolve lista parcial: limite do ADN ou rejeição viram erro', async () => {
+      http.responses = [
+        ok(
+          {
+            StatusProcessamento: 'DOCUMENTOS_LOCALIZADOS',
+            LoteDFe: [
+              nfseItem(
+                1,
+                KEY_A,
+                distributed(KEY_A, '23', tenant.cnpj, '2026-11-03T10:40:32-03:00')
+              ),
+            ],
+          },
+          200
+        ),
+        ok({}, 429),
+      ];
+      await expect(provider.listIssued(tenant, material, range)).rejects.toBeInstanceOf(
+        FiscalProviderUnavailableError
+      );
+
+      http.responses = [ok({ StatusProcessamento: 'REJEICAO', Erros: [] }, 200)];
+      await expect(provider.listIssued(tenant, material, range)).rejects.toThrow(/ADN/);
+    });
+
+    it('sem documentos: lista vazia e nota não encontrada', async () => {
+      http.responses = [ok({}, 404), ok({}, 404)];
+      expect(await provider.listIssued(tenant, material, range)).toEqual([]);
+      expect(await provider.getIssued(tenant, material, '23')).toBeNull();
+    });
+
+    it('acha a nota pelo número, com o XML', async () => {
+      const xml = distributed(KEY_A, '23', tenant.cnpj, '2026-11-03T10:40:32-03:00');
+      http.responses = [
+        ok(
+          { StatusProcessamento: 'DOCUMENTOS_LOCALIZADOS', LoteDFe: [nfseItem(1, KEY_A, xml)] },
+          200
+        ),
+        ok({}, 404),
+      ];
+      expect(await provider.getIssued(tenant, material, '23')).toMatchObject({ number: '23', xml });
+    });
+  });
 });

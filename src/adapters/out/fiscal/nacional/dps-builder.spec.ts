@@ -71,6 +71,17 @@ describe('buildDpsXml', () => {
 
   it('não optante usa indTotTrib e não envia regApTribSN; inclui IBS/CBS quando configurado', async () => {
     const invoice = makeInvoice({
+      customer: {
+        name: 'Maria da Silva',
+        taxId: { kind: 'CPF', value: '52998224725' },
+        address: {
+          street: 'R. Luiz Pereira Barreto',
+          number: '1248',
+          district: 'Centro',
+          cityCode: '3502804',
+          zipCode: '16015445',
+        },
+      },
       taxProfile: createTaxProfile({
         nationalServiceCode: '010701',
         ibsCbs: { cst: '000', cClassTrib: '000001', operationIndicator: '100301' },
@@ -221,6 +232,18 @@ describe('tomador no exterior e tributos aproximados', () => {
     expect(identified).toContain('<cMun>3502804</cMun>');
     expect(identified).toContain('<cIndOp>100301</cIndOp>');
     expect(await validateAgainstXsd(identified, 'DPS_v1.01.xsd')).toEqual([]);
+
+    const withoutAddress = buildDpsXml(
+      makeInvoice({
+        customer: { name: 'Bruno', taxId: { kind: 'CPF', value: '52998224725' } },
+        taxProfile,
+      }),
+      makeTenant(),
+      opts
+    );
+    expect(withoutAddress).toContain('<toma><CPF>52998224725</CPF>');
+    expect(withoutAddress).not.toContain('<IBSCBS>');
+    expect(await validateAgainstXsd(withoutAddress, 'DPS_v1.01.xsd')).toEqual([]);
   });
 
   it('estrangeiro sem NIF usa cNaoNIF; tratamento TAXABLE tributa normalmente', async () => {

@@ -258,6 +258,10 @@ export async function buildContainer(
           (invoice.sentToProvider ? invoice.fiscalSystem : undefined) ??
           systemOf(tenant, invoice.competenceDate)
       ],
+    consultable: (tenant, at) =>
+      [
+        ...new Set([systemOf(tenant, at), fiscalSystemFor(tenant, ginfesCities, paulistanaCities)]),
+      ].map((system) => providersBySystem[system]),
   };
   const municipalParams: MunicipalParamsGateway = nacional;
 

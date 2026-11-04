@@ -4,6 +4,7 @@ import {
   FiscalProvider,
   FiscalProviderUnavailableError,
   IssueOutcome,
+  MunicipalNfseSummary,
   MunicipalParamsGateway,
   MunicipalServiceParams,
 } from '../../../../application/ports/fiscal-provider.js';
@@ -14,7 +15,14 @@ import { Tenant } from '../../../../domain/tenant/tenant.js';
 import { openPfx } from '../../crypto/pfx.js';
 import { buildCancellationXml, buildDpsXml } from './dps-builder.js';
 import { HttpResponse, MtlsHttpClient, TransportError } from './mtls-http.js';
-import { gunzipBase64, gzipBase64, parseNfseXml } from './nfse-xml-parser.js';
+import {
+  decodeDfeXml,
+  gunzipBase64,
+  gzipBase64,
+  isCancellationEvent,
+  parseDistributedNfse,
+  parseNfseXml,
+} from './nfse-xml-parser.js';
 import { signXml } from './xml-signer.js';
 
 export interface NacionalEndpoints {
@@ -55,6 +63,9 @@ const isUnavailableStatus = (status: number): boolean =>
   status === 0 || status === 408 || status === 429 || status >= 500;
 
 class UnavailableResponse extends Error {}
+
+/** Teto de páginas do ADN: acima disso falha em vez de devolver uma lista parcial. */
+const MAX_DISTRIBUTION_PAGES = 200;
 
 export class NacionalFiscalProvider implements FiscalProvider, MunicipalParamsGateway {
   readonly name = 'NACIONAL';
@@ -238,6 +249,78 @@ export class NacionalFiscalProvider implements FiscalProvider, MunicipalParamsGa
         ? errors
         : [{ code: `HTTP_${response.status}`, message: response.raw.slice(0, 500) }],
     };
+  }
+
+  /** Uma nota do CNPJ pelo número, procurada na distribuição do ADN. */
+  async getIssued(
+    tenant: Tenant,
+    certificate: CertificateMaterial,
+    number: string
+  ): Promise<(MunicipalNfseSummary & { xml: string }) | null> {
+    const notes = await this.distributedNotes(tenant, certificate);
+    return notes.find((n) => n.number === number) ?? null;
+  }
+
+  async listIssued(
+    tenant: Tenant,
+    certificate: CertificateMaterial,
+    range: { from: Date; to: Date }
+  ): Promise<MunicipalNfseSummary[]> {
+    const notes = await this.distributedNotes(tenant, certificate);
+    return notes
+      .filter((n) => n.issuedAt >= range.from && n.issuedAt <= range.to)
+      .map(({ xml: _xml, ...summary }) => summary);
+  }
+
+  /**
+   * Percorre a distribuição do ADN por NSU. Ela também traz notas recebidas pelo CNPJ (como tomador),
+   * então só ficam as que ele prestou, marcadas como canceladas quando há evento de cancelamento.
+   */
+  private async distributedNotes(
+    tenant: Tenant,
+    certificate: CertificateMaterial
+  ): Promise<(MunicipalNfseSummary & { xml: string })[]> {
+    const notes = new Map<string, MunicipalNfseSummary & { xml: string }>();
+    const cancelled = new Set<string>();
+    let nsu = 0;
+    for (let page = 0; ; page++) {
+      if (page === MAX_DISTRIBUTION_PAGES) {
+        throw new FiscalProviderUnavailableError('Distribuição do ADN com documentos demais');
+      }
+      const response = await this.call(
+        'GET',
+        `${this.adn(tenant)}/contribuintes/DFe/${nsu}?cnpjConsulta=${tenant.cnpj}&lote=true`,
+        certificate
+      );
+      // O ADN responde 404 quando não há documento depois do NSU informado.
+      if (response.status === 404) break;
+      const body = (response.body ?? {}) as Record<string, unknown>;
+      if (response.status >= 300 || body.StatusProcessamento === 'REJEICAO') {
+        throw new FiscalProviderUnavailableError(
+          `ADN respondeu HTTP ${response.status}: ${response.raw.slice(0, 500)}`
+        );
+      }
+      const batch = (Array.isArray(body.LoteDFe) ? body.LoteDFe : []) as Record<string, unknown>[];
+      let highest = nsu;
+      for (const item of batch) {
+        highest = Math.max(highest, Number(item.NSU) || 0);
+        const key = typeof item.ChaveAcesso === 'string' ? item.ChaveAcesso : undefined;
+        const b64 = typeof item.ArquivoXml === 'string' ? item.ArquivoXml : undefined;
+        if (item.TipoDocumento === 'NFSE' && b64) {
+          const { accessKey, providerCnpj, ...note } = parseDistributedNfse(decodeDfeXml(b64), key);
+          if (providerCnpj === tenant.cnpj) notes.set(accessKey, note);
+        } else if (
+          item.TipoDocumento === 'EVENTO' &&
+          key &&
+          isCancellationEvent(item.TipoEvento, b64 && decodeDfeXml(b64))
+        ) {
+          cancelled.add(key);
+        }
+      }
+      if (highest <= nsu) break;
+      nsu = highest;
+    }
+    return [...notes].map(([key, note]) => ({ ...note, cancelled: cancelled.has(key) }));
   }
 
   /**

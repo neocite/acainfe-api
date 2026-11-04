@@ -128,6 +128,24 @@ export class FakeSefin {
         ? send(200, { chaveAcesso: s.accessKey, nfseXmlGZipB64: gzipBase64(s.nfseXml) })
         : send(404, {});
     }
+    // Distribuição do ADN: um documento por página, para exercitar o avanço do NSU.
+    const dfe = path.match(/^\/contribuintes\/DFe\/(\d+)$/);
+    if (req.method === 'GET' && dfe) {
+      const nsu = Number(dfe[1]);
+      const stored = [...this.byKey.values()][nsu];
+      if (!stored) return send(404, { StatusProcessamento: 'NENHUM_DOCUMENTO_LOCALIZADO' });
+      return send(200, {
+        StatusProcessamento: 'DOCUMENTOS_LOCALIZADOS',
+        LoteDFe: [
+          {
+            NSU: nsu + 1,
+            ChaveAcesso: stored.accessKey,
+            TipoDocumento: 'NFSE',
+            ArquivoXml: gzipBase64(stored.nfseXml),
+          },
+        ],
+      });
+    }
     const aliquota = path.match(/^\/parametrizacao\/(\d+)\/([\d.]+)\/[^/]+\/aliquota$/);
     if (req.method === 'GET' && aliquota) {
       return send(200, { aliquotas: { [aliquota[2]]: [{ Aliq: 2.0, DtIni: '2026-01-01' }] } });

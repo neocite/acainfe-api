@@ -183,10 +183,16 @@ export function buildDpsXml(invoice: Invoice, tenant: Tenant, options: DpsBuildO
     ]);
   const isExport = Boolean(foreign) && (profile.foreignTreatment ?? 'EXPORT') === 'EXPORT';
 
-  // Sem documento (CPF/CNPJ/NIF) não há grupo toma, e os indicadores de operação "no domicílio do
-  // adquirente" (ex.: 100301) exigem o endereço do tomador (E0234). Enquanto o IBS/CBS for opcional
-  // (até 31/12/2026), consumidor não identificado sai sem o grupo. A partir de 2027 será preciso o CPF.
-  const ibs = toma ? (foreign && profile.foreignIbsCbs) || profile.ibsCbs : undefined;
+  // Os indicadores de operação "no domicílio do adquirente" (ex.: 100301) exigem o endereço do
+  // tomador (E0234). Enquanto o IBS/CBS for opcional (até 31/12/2026), tomador no Brasil sem documento
+  // ou sem endereço sai sem o grupo. A partir de 2027 esta exceção precisa sair.
+  const ibs = !toma
+    ? undefined
+    : foreign
+      ? profile.foreignIbsCbs || profile.ibsCbs
+      : tomaAddress
+        ? profile.ibsCbs
+        : undefined;
   const ibsCbs =
     ibs &&
     el('IBSCBS', [

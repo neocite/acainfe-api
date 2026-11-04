@@ -26,6 +26,7 @@ import {
   FiscalProvider,
   FiscalProviderResolver,
   FiscalProviderUnavailableError,
+  MunicipalNfseSummary,
 } from '../ports/fiscal-provider.js';
 import {
   InvoiceFilter,
@@ -416,50 +417,72 @@ export class InvoiceService {
   /** Uma nota da prefeitura pelo número, com o XML como gravado (inclusive de outros sistemas). */
   async getMunicipal(tenant: Tenant, number: string, issuedOn?: Date) {
     const known = await this.deps.invoices.findByNfseNumber(tenant.id, number.trim());
-    // Nota nossa: o sistema que a emitiu; senão, o da empresa no dia informado (ou hoje).
-    const provider = known
-      ? this.providerFor(known, tenant)
-      : this.deps.providers.resolve(tenant, issuedOn);
-    if (!provider.getIssued) {
-      throw DomainError.validation(`O provedor ${provider.name} não oferece esta consulta`);
+    // Nota nossa: o sistema que a emitiu; senão, os da empresa no dia informado (ou hoje).
+    const providers = (
+      known ? [this.providerFor(known, tenant)] : this.consultableProviders(tenant, issuedOn)
+    ).filter((p) => p.getIssued);
+    if (!providers.length) {
+      throw DomainError.validation('A empresa não tem sistema que ofereça esta consulta');
     }
     // Nota emitida por nós: já sabemos o dia, então a consulta vai pelo período.
     const day = issuedOn ?? known?.nfse?.issuedAt;
     const material = await this.deps.certificates.loadMaterial(tenant);
-    const nfse = await provider.getIssued(tenant, material, number.trim(), day);
-    if (!nfse) throw DomainError.notFound('NFS-e na prefeitura', number);
-    return nfse;
+    for (const provider of providers) {
+      const nfse = await provider.getIssued!(tenant, material, number.trim(), day);
+      if (nfse) return nfse;
+    }
+    throw DomainError.notFound('NFS-e na prefeitura', number);
   }
 
-  canListMunicipal(tenant: Tenant): boolean {
-    return Boolean(this.deps.providers.resolve(tenant).listIssued);
+  private consultableProviders(tenant: Tenant, at?: Date): FiscalProvider[] {
+    return (
+      this.deps.providers.consultable?.(tenant, at) ?? [this.deps.providers.resolve(tenant, at)]
+    );
   }
 
-  /** Notas já emitidas no município (inclusive por outros sistemas), direto da prefeitura. */
+  /** `at`: data das notas a conferir (padrão: agora). */
+  canListMunicipal(tenant: Tenant, at?: Date): boolean {
+    return this.consultableProviders(tenant, at).some((p) => p.listIssued);
+  }
+
+  /** Notas já emitidas pelo CNPJ (inclusive por outros sistemas), direto dos sistemas fiscais. */
   async listMunicipal(tenant: Tenant, range: { from: Date; to: Date }) {
-    const provider = this.deps.providers.resolve(tenant, range.from);
-    if (!provider.listIssued) {
-      throw DomainError.validation(`O provedor ${provider.name} não oferece esta consulta`);
+    const providers = this.consultableProviders(tenant, range.to).filter((p) => p.listIssued);
+    if (!providers.length) {
+      throw DomainError.validation('A empresa não tem sistema que ofereça esta consulta');
     }
     const material = await this.deps.certificates.loadMaterial(tenant);
-    const notes = await provider.listIssued(tenant, material, range);
-    // Notas que nós mesmos emitimos (para separar das emitidas por outro sistema, ex.: eNotas).
-    const ours = new Set(
-      (
-        await this.deps.invoices.findIssuedBetween(
-          tenant.id,
-          new Date(range.from.getTime() - 86_400_000),
-          new Date(range.to.getTime() + 86_400_000)
-        )
-      )
-        .filter(
-          (i) =>
-            i.nfse?.provider === provider.name ||
-            (!i.nfse?.provider && provider.name === 'NACIONAL')
-        )
-        .map((i) => i.nfse!.number)
+    const issued = await this.deps.invoices.findIssuedBetween(
+      tenant.id,
+      new Date(range.from.getTime() - 86_400_000),
+      new Date(range.to.getTime() + 86_400_000)
     );
-    return notes.map((n) => ({ ...n, issuedByAcainfe: ours.has(n.number) }));
+    // A mesma nota pode estar nos dois sistemas: a prefeitura compartilha cópia com o ADN.
+    const merged = new Map<string, MunicipalNfseSummary>();
+    for (const provider of providers) {
+      // Notas que nós mesmos emitimos (para separar das emitidas por outro sistema, ex.: eNotas).
+      const ours = new Set(
+        issued
+          .filter(
+            (i) =>
+              i.nfse?.provider === provider.name ||
+              (!i.nfse?.provider && provider.name === 'NACIONAL')
+          )
+          .map((i) => i.nfse!.number)
+      );
+      for (const note of await provider.listIssued!(tenant, material, range)) {
+        const key = `${note.number}|${note.amountCents}`;
+        const seen = merged.get(key);
+        merged.set(key, {
+          ...note,
+          ...seen,
+          system: seen?.system ?? provider.name,
+          cancelled: Boolean(seen?.cancelled || note.cancelled),
+          issuedByAcainfe: Boolean(seen?.issuedByAcainfe || ours.has(note.number)),
+        });
+      }
+    }
+    return [...merged.values()];
   }
 
   async retry(tenantId: string, id: string): Promise<Invoice> {

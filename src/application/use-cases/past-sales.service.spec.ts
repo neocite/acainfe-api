@@ -339,4 +339,17 @@ describe('Vendas passadas (antes do açaínfe)', () => {
       await h.pastSales.applyReconciliation(tenant, { period: '2026-10', confidence: 'MEDIUM' })
     ).toMatchObject({ marked: 0 });
   });
+
+  it('empresa que migrou: venda de período antigo ainda precisa do cruzamento antes de emitir', async () => {
+    await h.onboarding.connectAbacatePay(tenant, h.gateway.validKey);
+    await reload();
+    const municipal = (h.invoices as unknown as { deps: { providers: { resolve: unknown } } }).deps;
+    // Hoje a empresa está num sistema sem consulta; no período das vendas, no que consulta.
+    municipal.providers = {
+      resolve: (_tenant: Tenant, at?: Date) => (at ? h.provider : { name: 'NACIONAL' }),
+    };
+    await expect(h.pastSales.issue(tenant, { period: '2026-10' })).rejects.toThrow(
+      /cruz|prefeitura/i
+    );
+  });
 });

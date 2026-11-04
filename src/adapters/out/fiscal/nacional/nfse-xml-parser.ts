@@ -1,5 +1,6 @@
 import { DOMParser } from '@xmldom/xmldom';
 import { gunzipSync, gzipSync } from 'node:zlib';
+import { MunicipalNfseSummary } from '../../../../application/ports/fiscal-provider.js';
 import { IssuedNfse } from '../../../../domain/invoice/invoice.js';
 
 export const gzipBase64 = (xml: string): string =>
@@ -86,5 +87,61 @@ export function summarizeNfseXml(xml: string): NfseSummary {
     issValue: firstText(doc, 'vISSQN'),
     netValue: firstText(doc, 'vLiq'),
     totalRetained: firstText(doc, 'vTotalRet'),
+  };
+}
+
+/** O ADN devolve o XML em base64, comprimido (gzip) ou não. */
+export function decodeDfeXml(b64: string): string {
+  const raw = Buffer.from(b64, 'base64');
+  return (raw[0] === 0x1f && raw[1] === 0x8b ? gunzipSync(raw) : raw).toString('utf8');
+}
+
+/** Registro efetivo de cancelamento. Pedido em análise (101103) ou indeferido (105105) não conta. */
+const CANCELLATION_EVENT_TYPES = new Set([
+  'CANCELAMENTO',
+  'CANCELAMENTO_POR_SUBSTITUICAO',
+  'CANCELAMENTO_DEFERIDO_ANALISE_FISCAL',
+  'CANCELAMENTO_POR_OFICIO',
+]);
+const CANCELLATION_EVENT_XML = /<(?:\w+:)?[eE](101101|105102|105104|305101)[\s>/]/;
+
+export function isCancellationEvent(eventType: unknown, xml?: string): boolean {
+  if (typeof eventType === 'string' && eventType) return CANCELLATION_EVENT_TYPES.has(eventType);
+  return Boolean(xml && CANCELLATION_EVENT_XML.test(xml));
+}
+
+/** Nota do ADN no formato da consulta à prefeitura, com o CNPJ do prestador para filtrar. */
+export function parseDistributedNfse(
+  xml: string,
+  fallbackAccessKey?: string
+): MunicipalNfseSummary & { xml: string; accessKey: string; providerCnpj?: string } {
+  const doc = new DOMParser().parseFromString(xml, 'text/xml') as unknown as Document;
+  const nfse = parseNfseXml(xml, fallbackAccessKey);
+  const inside = (parent: string, tag: string): string | undefined =>
+    doc.getElementsByTagNameNS('*', parent)[0]?.getElementsByTagNameNS('*', tag)[0]?.textContent ??
+    undefined;
+  const rate = firstText(doc, 'pAliqAplic') ?? firstText(doc, 'pAliq');
+  const dpsNumber = firstText(doc, 'nDPS');
+  return {
+    xml,
+    accessKey: nfse.accessKey,
+    providerCnpj: inside('prest', 'CNPJ') ?? inside('emit', 'CNPJ'),
+    number: nfse.number,
+    verificationCode: nfse.accessKey,
+    issuedAt: nfse.issuedAt,
+    rps: dpsNumber ? { number: dpsNumber, series: firstText(doc, 'serie') ?? '' } : undefined,
+    amountCents: nfse.amountCents ?? 0,
+    issRateBps: rate ? Math.round(Number(rate) * 100) : undefined,
+    serviceItem: firstText(doc, 'cTribNac'),
+    municipalTaxCode: firstText(doc, 'cTribMun'),
+    customerDocument: nfse.customerDocument || undefined,
+    customerName: inside('toma', 'xNome'),
+    description: firstText(doc, 'xDescServ'),
+    details: {
+      ambienteGerador: firstText(doc, 'ambGer'),
+      competencia: firstText(doc, 'dCompet'),
+      municipio: firstText(doc, 'xLocEmi'),
+      valorIss: firstText(doc, 'vISSQN'),
+    },
   };
 }
